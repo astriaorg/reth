@@ -20,6 +20,8 @@ reth-rlp = { path = "../../rlp" }
 # async
 tokio = { version = "1.21", features = ["sync", "macros", "rt-multi-thread"] }
 
+rand = "0.8"
+
 # trie
 cita_trie = "4.0.0"
 hasher = "0.1.4"
@@ -39,6 +41,7 @@ reth-primitives = { path = "../../primitives", features = ["arbitrary"] }
 parking_lot = "0.12"
 proptest = { version = "1.0" }
 assert_matches = "1.5"
+
 
 # trie
 triehash = "0.8"

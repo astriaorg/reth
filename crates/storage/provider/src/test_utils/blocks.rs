@@ -9,6 +9,8 @@ use reth_primitives::{
 use reth_rlp::Decodable;
 use std::collections::BTreeMap;
 
+use rand::{thread_rng, Rng};
+
 /// Assert genesis block
 pub fn assert_genesis_block<DB: Database>(tx: &Transaction<'_, DB>, g: SealedBlock) {
     let n = g.number;
@@ -56,7 +58,7 @@ pub struct BlockChainTestData {
 
 impl Default for BlockChainTestData {
     fn default() -> Self {
-        Self { genesis: genesis(), blocks: vec![block1(), block2()] }
+        Self { genesis: genesis(), blocks: vec![block1(), block2(), block3()] }
     }
 }
 
@@ -68,6 +70,62 @@ pub fn genesis() -> SealedBlock {
         body: vec![],
         ommers: vec![],
         withdrawals: Some(vec![]),
+    }
+}
+
+fn generate_random_hex_array() -> [u8; 32] {
+    // Generate random bytes
+    let mut rng = thread_rng();
+    let random_bytes: Vec<u8> = (0..32).map(|_| rng.gen()).collect();
+    let output: [u8; 32] = random_bytes[..32].try_into().unwrap();
+    output
+}
+
+impl BlockChainTestData {
+    /// Generate a new random block and append it to the block data
+    pub fn gen_append_new_block(mut self) -> Self {
+        let mut block_rlp = hex!("f9025ff901f7a0c86e8cc0310ae7c531c758678ddbfd16fc51c8cef8cec650b032de9869e8b94fa01dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347942adc25665018aa1fe0e6bc666dac8fc2697ff9baa050554882fbbda2c2fd93fdc466db9946ea262a67f7a76cc169e714f105ab583da00967f09ef1dfed20c0eacfaa94d5cd4002eda3242ac47eae68972d07b106d192a0e3c8b47fbfc94667ef4cceb17e5cc21e3b1eebd442cebb27f07562b33836290db90100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008302000001830f42408238108203e800a00000000000000000000000000000000000000000000000000000000000000000880000000000000000f862f860800a83061a8094095e7baea6a6c7c4c2dfeb977efac326af552d8780801ba072ed817487b84ba367d15d2f039b5fc5f087d0a8882fbdf73e8cb49357e1ce30a0403d800545b8fc544f92ce8124e2255f8c3c6af93f28243a120585d4c4c6a2a3c0").as_slice();
+        let mut block = SealedBlock::decode(&mut block_rlp).unwrap();
+        block.withdrawals = Some(vec![Withdrawal::default()]);
+        let mut header = block.header.clone().unseal();
+        header.number = self.blocks.len() as u64 + 1;
+        header.state_root = H256(generate_random_hex_array());
+        // for b in self.blocks.iter() {
+        //     let (sealed_block, _) = b;
+        //     eprintln!("\tparent_hash: {:?}", sealed_block.hash());
+        // }
+        let (sealed_block, _) = self.blocks.last().unwrap();
+        // eprintln!("parent_hash: {:?}", sealed_block.hash());
+
+        header.parent_hash = sealed_block.hash();
+        block.header = header.seal_slow();
+
+        let mut post_state = PostState::default();
+        post_state.finish_transition();
+
+        // Transaction changes
+        // post_state.change_account(
+        //     H160([0x60; 20]),
+        //     Account { nonce: 1, balance: U256::from(10), bytecode_hash: None },
+        //     Account { nonce: 2, balance: U256::from(15), bytecode_hash: None },
+        // );
+        // post_state.change_storage(
+        //     H160([0x60; 20]),
+        //     BTreeMap::from([(U256::from(5), (U256::from(10), U256::from(15)))]),
+        // );
+        // post_state.finish_transition();
+        // // Block changes
+        // post_state.change_account(
+        //     H160([0x60; 20]),
+        //     Account { nonce: 2, balance: U256::from(15), bytecode_hash: None },
+        //     Account { nonce: 3, balance: U256::from(20), bytecode_hash: None },
+        // );
+        // post_state.finish_transition();
+
+        self.blocks
+            .push((SealedBlockWithSenders { block, senders: vec![H160([0x32; 20])] }, post_state));
+
+        self
     }
 }
 
@@ -139,4 +197,40 @@ fn block2() -> (SealedBlockWithSenders, PostState) {
     post_state.finish_transition();
 
     (SealedBlockWithSenders { block, senders: vec![H160([0x31; 20])] }, post_state)
+}
+
+/// Block two that points to block 2
+fn block3() -> (SealedBlockWithSenders, PostState) {
+    let mut block_rlp = hex!("f9025ff901f7a0c86e8cc0310ae7c531c758678ddbfd16fc51c8cef8cec650b032de9869e8b94fa01dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347942adc25665018aa1fe0e6bc666dac8fc2697ff9baa050554882fbbda2c2fd93fdc466db9946ea262a67f7a76cc169e714f105ab583da00967f09ef1dfed20c0eacfaa94d5cd4002eda3242ac47eae68972d07b106d192a0e3c8b47fbfc94667ef4cceb17e5cc21e3b1eebd442cebb27f07562b33836290db90100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008302000001830f42408238108203e800a00000000000000000000000000000000000000000000000000000000000000000880000000000000000f862f860800a83061a8094095e7baea6a6c7c4c2dfeb977efac326af552d8780801ba072ed817487b84ba367d15d2f039b5fc5f087d0a8882fbdf73e8cb49357e1ce30a0403d800545b8fc544f92ce8124e2255f8c3c6af93f28243a120585d4c4c6a2a3c0").as_slice();
+    let mut block = SealedBlock::decode(&mut block_rlp).unwrap();
+    block.withdrawals = Some(vec![Withdrawal::default()]);
+    let mut header = block.header.clone().unseal();
+    header.number = 2;
+    header.state_root =
+        H256(hex!("f20fc3200df29bc8c974ee0a2629e4e38e34da81195be0ac6c82d6b8213077f4"));
+    // parent_hash points to block1 hash
+    header.parent_hash =
+        H256(hex!("0e2d355ede1b84d8f6f0c193ec76fa81bfe4ed5f30d469492997f1871e431033"));
+    block.header = header.seal_slow();
+
+    let mut post_state = PostState::default();
+    // Transaction changes
+    post_state.change_account(
+        H160([0x60; 20]),
+        Account { nonce: 3, balance: U256::from(20), bytecode_hash: None },
+        Account { nonce: 4, balance: U256::from(25), bytecode_hash: None },
+    );
+    post_state.change_storage(
+        H160([0x60; 20]),
+        BTreeMap::from([(U256::from(10), (U256::from(15), U256::from(20)))]),
+    );
+    post_state.finish_transition();
+    // Block changes
+    post_state.create_account(
+        H160([0x62; 20]),
+        Account { nonce: 1, balance: U256::from(10), bytecode_hash: None },
+    );
+    post_state.finish_transition();
+
+    (SealedBlockWithSenders { block, senders: vec![H160([0x32; 20])] }, post_state)
 }

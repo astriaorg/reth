@@ -235,7 +235,7 @@ impl<DB: Database, C: Consensus, EF: ExecutorFactory> BlockchainTree<DB, C, EF> 
                 )?;
 
                 self.block_indices.insert_non_fork_block(block_number, block_hash, chain_id);
-                return Ok(BlockStatus::Valid)
+                return Ok(BlockStatus::ValidNew)
             } else {
                 let chain = parent_chain.new_chain_fork(
                     block,
@@ -273,7 +273,7 @@ impl<DB: Database, C: Consensus, EF: ExecutorFactory> BlockchainTree<DB, C, EF> 
             let canonical_tip =
                 canonical_block_hashes.last_key_value().map(|(_, hash)| *hash).unwrap_or_default();
             let block_status = if block.parent_hash == canonical_tip {
-                BlockStatus::Valid
+                BlockStatus::ValidNew
             } else {
                 BlockStatus::Accepted
             };
@@ -419,7 +419,7 @@ impl<DB: Database, C: Consensus, EF: ExecutorFactory> BlockchainTree<DB, C, EF> 
             let canonical_fork = self.canonical_fork(chain_id).expect("Chain id is valid");
             // if block chain extends canonical chain
             if canonical_fork == self.block_indices.canonical_tip() {
-                return Ok(BlockStatus::Valid)
+                return Ok(BlockStatus::ValidExists)
             } else {
                 return Ok(BlockStatus::Accepted)
             }
@@ -428,7 +428,7 @@ impl<DB: Database, C: Consensus, EF: ExecutorFactory> BlockchainTree<DB, C, EF> 
         // check if block is part of canonical chain
         if self.block_indices.canonical_hash(&block.number) == Some(block.hash()) {
             // block is part of canonical chain
-            return Ok(BlockStatus::Valid)
+            return Ok(BlockStatus::ValidExists)
         }
 
         self.try_insert_block(block)
@@ -574,7 +574,7 @@ impl<DB: Database, C: Consensus, EF: ExecutorFactory> BlockchainTree<DB, C, EF> 
             chain_action =
                 CanonStateNotification::Commit { new: Arc::new(new_canon_chain.clone()) };
             // append to database
-            self.commit_canonical(new_canon_chain)?;
+            self.commit_canonical(new_canon_chain)?; // what goes wrong here?
         } else {
             // it forks to canonical block that is not the tip.
 
@@ -619,7 +619,7 @@ impl<DB: Database, C: Consensus, EF: ExecutorFactory> BlockchainTree<DB, C, EF> 
         let (blocks, state) = chain.into_inner();
 
         tx.append_blocks_with_post_state(blocks.into_values().collect(), state)
-            .map_err(|e| ExecError::CanonicalCommit { inner: e.to_string() })?;
+            .map_err(|e| ExecError::CanonicalCommit { inner: e.to_string() })?; // this is the error
 
         tx.commit()?;
 
@@ -780,6 +780,7 @@ mod tests {
     #[tokio::test]
     async fn sanity_path() {
         let data = BlockChainTestData::default();
+
         let (mut block1, exec1) = data.blocks[0].clone();
         block1.number = 11;
         let (mut block2, exec2) = data.blocks[1].clone();
@@ -818,12 +819,12 @@ mod tests {
         assert_eq!(tree.insert_block_with_senders(block2.clone()), Ok(BlockStatus::Disconnected));
 
         // insert block1
-        assert_eq!(tree.insert_block_with_senders(block1.clone()), Ok(BlockStatus::Valid));
+        assert_eq!(tree.insert_block_with_senders(block1.clone()), Ok(BlockStatus::ValidNew));
         // already inserted block will return true.
-        assert_eq!(tree.insert_block_with_senders(block1.clone()), Ok(BlockStatus::Valid));
+        assert_eq!(tree.insert_block_with_senders(block1.clone()), Ok(BlockStatus::ValidExists));
 
         // insert block2
-        assert_eq!(tree.insert_block_with_senders(block2.clone()), Ok(BlockStatus::Valid));
+        assert_eq!(tree.insert_block_with_senders(block2.clone()), Ok(BlockStatus::ValidNew));
 
         // Trie state:
         //      b2 (pending block)
@@ -1068,5 +1069,137 @@ mod tests {
             .with_fork_to_child(HashMap::from([]))
             .with_pending_blocks((block2.number + 1, HashSet::from([])))
             .assert(&tree);
+    }
+
+    #[tokio::test]
+    async fn soft_hard_commit_pattern() {
+        let data = BlockChainTestData::default();
+
+        let (mut block1, exec1) = data.blocks[0].clone();
+        block1.number = 11;
+        let (mut block2, exec2) = data.blocks[1].clone();
+        block2.number = 12;
+        let (mut block3, exec3) = data.blocks[2].clone();
+        block3.number = 13;
+
+        // test pops execution results from vector, so order is from last to first.
+        let externals =
+            setup_externals(vec![exec3.clone(), exec2.clone(), exec1.clone(), exec3, exec2, exec1]);
+
+        // last finalized block would be number 9.
+        setup_genesis(externals.db.clone(), data.genesis);
+
+        // make tree
+        let config = BlockchainTreeConfig::new(1, 2, 3);
+        let (sender, mut canon_notif) = tokio::sync::broadcast::channel(10);
+        let mut tree =
+            BlockchainTree::new(externals, sender, config).expect("failed to create tree");
+
+        // genesis block 10 is already canonical
+        assert_eq!(tree.make_canonical(&H256::zero()), Ok(()));
+
+        // insert block2 hits max chain size
+        assert_eq!(
+            tree.insert_block_with_senders(block2.clone()),
+            Err(ExecError::PendingBlockIsInFuture {
+                block_number: block2.number,
+                block_hash: block2.hash(),
+                last_finalized: 9,
+            }
+            .into())
+        );
+
+        // make genesis block 10 as finalized
+        tree.finalize_block(10);
+
+        // block 2 parent is not known.
+        assert_eq!(tree.insert_block_with_senders(block2.clone()), Ok(BlockStatus::Disconnected));
+        // assert_eq!(tree.insert_block(block2.clone().into), Ok(BlockStatus::Disconnected));
+
+        // insert block1
+        assert_eq!(tree.insert_block_with_senders(block1.clone()), Ok(BlockStatus::ValidNew));
+        // reinsert block1
+        assert_eq!(tree.insert_block_with_senders(block1.clone()), Ok(BlockStatus::ValidExists));
+        // all subsequent insertions will return ValidExists
+        assert_eq!(tree.insert_block_with_senders(block1.clone()), Ok(BlockStatus::ValidExists));
+
+        // Trie state:
+        //      b1 (pending block)
+        //    /
+        //  /
+        // g1 (canonical blocks)
+        // |
+        TreeTester::default()
+            .with_chain_num(1)
+            .with_block_to_chain(HashMap::from([(block1.hash, 0)]))
+            .with_fork_to_child(HashMap::from([(block1.parent_hash, HashSet::from([block1.hash]))]))
+            .with_pending_blocks((block1.number, HashSet::from([block1.hash])))
+            .assert(&tree);
+
+        // make block1 canonical
+        assert_eq!(tree.make_canonical(&block1.hash()), Ok(()));
+        // check notification
+        // assert_eq!(new_block_notification.try_recv(), Ok(Arc::new(block1.header.clone())));
+        assert_matches!(canon_notif.try_recv(), Ok(CanonStateNotification::Commit{ new}) if *new.blocks() == BTreeMap::from([(block1.number,block1.clone())]));
+        // make block1 11 as finalized
+        tree.finalize_block(11);
+
+        // insert block2
+        assert_eq!(tree.insert_block_with_senders(block2.clone()), Ok(BlockStatus::ValidNew));
+        // reinsert block2
+        assert_eq!(tree.insert_block_with_senders(block2.clone()), Ok(BlockStatus::ValidExists));
+        assert_eq!(tree.insert_block_with_senders(block2.clone()), Ok(BlockStatus::ValidExists));
+        // // make block2 canonical
+        // assert_eq!(tree.make_canonical(&block2.hash()), Ok(()));
+        // // check notification.
+        // assert_eq!(new_block_notification.try_recv(), Ok(Arc::new(block2.header.clone())));
+
+        // Trie state:
+        //      b2 (pending block)
+        //    /
+        //  /
+        // b1 (finalized block)
+        // |
+        TreeTester::default()
+            .with_chain_num(1)
+            .with_block_to_chain(HashMap::from([(block2.hash, 1)]))
+            .with_fork_to_child(HashMap::from([(block2.parent_hash, HashSet::from([block2.hash]))]))
+            .with_pending_blocks((block2.number, HashSet::from([block2.hash])))
+            .assert(&tree);
+
+        // make block2 canonical
+        assert_eq!(tree.make_canonical(&block2.hash()), Ok(()));
+        // check notification
+        // assert_eq!(new_block_notification.try_recv(), Ok(Arc::new(block2.header.clone())));
+        assert_matches!(canon_notif.try_recv(), Ok(CanonStateNotification::Commit{ new}) if *new.blocks() == BTreeMap::from([(block2.number,block2.clone())]));
+        // make block2 12 as finalized
+        tree.finalize_block(12);
+
+        // insert block3
+        assert_eq!(tree.insert_block_with_senders(block3.clone()), Ok(BlockStatus::ValidNew));
+        // reinsert block3
+        assert_eq!(tree.insert_block_with_senders(block3.clone()), Ok(BlockStatus::ValidExists));
+        // all subsequent insertions will return ValidExists
+        assert_eq!(tree.insert_block_with_senders(block3.clone()), Ok(BlockStatus::ValidExists));
+
+        // Trie state:
+        //      b3 (pending block)
+        //    /
+        //  /
+        // b2 (finalized block)
+        // |
+        TreeTester::default()
+            .with_chain_num(1)
+            .with_block_to_chain(HashMap::from([(block3.hash, 2)]))
+            .with_fork_to_child(HashMap::from([(block3.parent_hash, HashSet::from([block3.hash]))]))
+            .with_pending_blocks((block3.number, HashSet::from([block3.hash])))
+            .assert(&tree);
+
+        // make block3 canonical
+        assert_eq!(tree.make_canonical(&block3.hash()), Ok(()));
+        // check notification
+        assert_matches!(canon_notif.try_recv(), Ok(CanonStateNotification::Commit{ new}) if *new.blocks() == BTreeMap::from([(block3.number,block3.clone())]));
+        // make block3 13 as finalized
+        tree.finalize_block(13);
     }
 }
