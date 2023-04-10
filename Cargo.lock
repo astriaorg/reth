@@ -5005,6 +5005,7 @@ dependencies = [
  "itertools",
  "parking_lot 0.12.1",
  "proptest",
+ "rand 0.8.5",
  "reth-codecs",
  "reth-db",
  "reth-interfaces",
@@ -5317,8 +5318,13 @@ name = "reth-trie"
 version = "0.1.0"
 dependencies = [
  "hex",
+ "proptest",
  "reth-primitives",
  "reth-rlp",
+ "tokio",
+ "tokio-stream",
+ "tracing",
+ "triehash",
 ]
 
 [[package]]

@@ -63,6 +63,12 @@ pub enum BlockStatus {
     /// If block validation is valid and block extends canonical chain.
     /// In BlockchainTree sense it forks on canonical tip.
     Valid,
+    /// If block validation is valid and block extends canonical chain.
+    /// Shows that the block is being added for the first time.
+    ValidNew,
+    /// If block validation is valid and block extends canonical chain.
+    /// Shows that the block has already been added.
+    ValidExists,
     /// If the block is valid, but it does not extend canonical chain
     /// (It is side chain) or hasn't been fully validated but ancestors of a payload are known.
     Accepted,
