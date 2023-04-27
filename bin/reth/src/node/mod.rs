@@ -160,13 +160,17 @@ impl Command {
 
         let genesis_hash = init_genesis(db.clone(), self.chain.clone())?;
 
+        // comment this out
         let consensus: Arc<dyn Consensus> = if self.auto_mine {
             debug!(target: "reth::cli", "Using auto seal");
             Arc::new(AutoSealConsensus::new(Arc::clone(&self.chain)))
         } else {
+            debug!(target: "reth::cli", "Using beacon consensus");
             Arc::new(BeaconConsensus::new(Arc::clone(&self.chain)))
         };
+        debug!(target: "reth::cli", "Consensus not built");
 
+        // comment this out
         self.init_trusted_nodes(&mut config);
 
         // configure blockchain tree

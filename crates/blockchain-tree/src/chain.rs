@@ -4,9 +4,14 @@
 //! blocks, as well as a list of the blocks the chain is composed of.
 use crate::{post_state::PostState, PostStateDataRef};
 use reth_db::database::Database;
-use reth_interfaces::{consensus::Consensus, executor::Error as ExecError, Error};
+use reth_interfaces::{
+    consensus::{Consensus, ConsensusError},
+    executor::Error as ExecError,
+    Error,
+};
 use reth_primitives::{
-    BlockHash, BlockNumber, ForkBlock, SealedBlockWithSenders, SealedHeader, U256,
+    constants, BlockHash, BlockNumber, Chain as PrimitivesChain, ForkBlock, Hardfork, Header,
+    SealedBlockWithSenders, SealedHeader, EMPTY_OMMER_ROOT, U256,
 };
 use reth_provider::{
     providers::PostStateProvider, BlockExecutor, Chain, ExecutorFactory, PostStateDataProvider,
@@ -14,6 +19,7 @@ use reth_provider::{
 use std::{
     collections::BTreeMap,
     ops::{Deref, DerefMut},
+    time::SystemTime,
 };
 
 use super::externals::TreeExternals;
@@ -39,6 +45,15 @@ impl Deref for AppendableChain {
 impl DerefMut for AppendableChain {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.chain
+    }
+}
+
+// added this
+fn validate_header_extradata(header: &Header) -> Result<(), ConsensusError> {
+    if header.extra_data.len() > 32 {
+        Err(ConsensusError::ExtraDataExceedsMax { len: header.extra_data.len() })
+    } else {
+        Ok(())
     }
 }
 
@@ -149,10 +164,194 @@ impl AppendableChain {
         C: Consensus,
         EF: ExecutorFactory,
     {
-        externals.consensus.validate_header_with_total_difficulty(&block, U256::MAX)?;
-        externals.consensus.validate_header(&block)?;
-        externals.consensus.validate_header_agains_parent(&block, parent_block)?;
-        externals.consensus.validate_block(&block)?;
+        // === validate header with total difficulty ===
+        // externals.consensus.validate_header_with_total_difficulty(&block, U256::MAX)?;
+        // crates/consensus/beacon/src/beacon_consensus.rs:  40:    pub fn
+        // validate_header_with_total_difficulty(
+        if externals
+            .chain_spec
+            .fork(Hardfork::Paris)
+            .active_at_ttd(U256::MAX, block.header.difficulty)
+        {
+            if block.header.difficulty != U256::ZERO {
+                return Err(reth_interfaces::Error::Consensus(
+                    ConsensusError::TheMergeDifficultyIsNotZero,
+                ))
+            }
+            if block.header.nonce != 0 {
+                return Err(reth_interfaces::Error::Consensus(
+                    ConsensusError::TheMergeNonceIsNotZero,
+                ))
+            }
+            if block.header.ommers_hash != EMPTY_OMMER_ROOT {
+                return Err(reth_interfaces::Error::Consensus(
+                    ConsensusError::TheMergeOmmerRootIsNotEmpty,
+                ))
+            }
+            validate_header_extradata(&block.header)?;
+        } else if externals.chain_spec.chain != PrimitivesChain::goerli() {
+            validate_header_extradata(&block.header)?;
+        }
+        // === validate header with total difficulty ===
+
+        // === validate header ===
+        // externals.consensus.validate_header(&block)?;
+        // Gas used needs to be less then gas limit. Gas used is going to be check after execution.
+        if block.header.gas_used > block.header.gas_limit {
+            return Err(reth_interfaces::Error::Consensus(
+                ConsensusError::HeaderGasUsedExceedsGasLimit {
+                    gas_used: block.header.gas_used,
+                    gas_limit: block.header.gas_limit,
+                },
+            ))
+        }
+        // Check if timestamp is in future. Clock can drift but this can be consensus issue.
+        let present_timestamp =
+            SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs();
+        if block.header.timestamp > present_timestamp {
+            return Err(reth_interfaces::Error::Consensus(ConsensusError::TimestampIsInFuture {
+                timestamp: block.header.timestamp,
+                present_timestamp,
+            }))
+        }
+        // Check if base fee is set.
+        if externals.chain_spec.fork(Hardfork::London).active_at_block(block.header.number) &&
+            block.header.base_fee_per_gas.is_none()
+        {
+            return Err(reth_interfaces::Error::Consensus(ConsensusError::BaseFeeMissing))
+        }
+        // EIP-4895: Beacon chain push withdrawals as operations
+        if externals.chain_spec.fork(Hardfork::Shanghai).active_at_timestamp(block.header.timestamp) &&
+            block.header.withdrawals_root.is_none()
+        {
+            return Err(reth_interfaces::Error::Consensus(ConsensusError::WithdrawalsRootMissing))
+        } else if !externals
+            .chain_spec
+            .fork(Hardfork::Shanghai)
+            .active_at_timestamp(block.header.timestamp) &&
+            block.header.withdrawals_root.is_some()
+        {
+            return Err(reth_interfaces::Error::Consensus(ConsensusError::WithdrawalsRootUnexpected))
+        }
+        // === validate header ===
+
+        // === validate header against parent ===
+        // externals.consensus.validate_header_agains_parent(&block, parent_block)?;
+        // Parent number is consistent.
+        if parent_block.number + 1 != block.number {
+            return Err(reth_interfaces::Error::Consensus(
+                ConsensusError::ParentBlockNumberMismatch {
+                    parent_block_number: parent_block.number,
+                    block_number: block.number,
+                },
+            ))
+        }
+        // timestamp in past check
+        if block.timestamp < parent_block.timestamp {
+            return Err(reth_interfaces::Error::Consensus(ConsensusError::TimestampIsInPast {
+                parent_timestamp: parent_block.timestamp,
+                timestamp: block.timestamp,
+            }))
+        }
+        // TODO Check difficulty increment between parent and child
+        // Ace age did increment it by some formula that we need to follow.
+        let mut parent_gas_limit = parent_block.gas_limit;
+        // By consensus, gas_limit is multiplied by elasticity (*2) on
+        // on exact block that hardfork happens.
+        if externals.chain_spec.fork(Hardfork::London).transitions_at_block(block.number) {
+            parent_gas_limit = parent_block.gas_limit * constants::EIP1559_ELASTICITY_MULTIPLIER;
+        }
+        // Check gas limit, max diff between child/parent gas_limit should be
+        // max_diff=parent_gas/1024
+        if block.gas_limit > parent_gas_limit {
+            if block.gas_limit - parent_gas_limit >= parent_gas_limit / 1024 {
+                return Err(reth_interfaces::Error::Consensus(
+                    ConsensusError::GasLimitInvalidIncrease {
+                        parent_gas_limit,
+                        child_gas_limit: block.gas_limit,
+                    },
+                ))
+            }
+        } else if parent_gas_limit - block.gas_limit >= parent_gas_limit / 1024 {
+            return Err(reth_interfaces::Error::Consensus(ConsensusError::GasLimitInvalidDecrease {
+                parent_gas_limit,
+                child_gas_limit: block.gas_limit,
+            }))
+        }
+        // EIP-1559 check base fee
+        if externals.chain_spec.fork(Hardfork::London).active_at_block(block.number) {
+            let base_fee = block.base_fee_per_gas.ok_or(ConsensusError::BaseFeeMissing)?;
+
+            let expected_base_fee =
+                if externals.chain_spec.fork(Hardfork::London).transitions_at_block(block.number) {
+                    constants::EIP1559_INITIAL_BASE_FEE
+                } else {
+                    // This BaseFeeMissing will not happen as previous blocks are checked to have
+                    // them.
+                    parent_block.next_block_base_fee().ok_or(ConsensusError::BaseFeeMissing)?
+                };
+            if expected_base_fee != base_fee {
+                return Err(reth_interfaces::Error::Consensus(ConsensusError::BaseFeeDiff {
+                    expected: expected_base_fee,
+                    got: base_fee,
+                }))
+            }
+        }
+        // === validate header against parent ===
+
+        // === validate block ===
+        // externals.consensus.validate_block(&block)?;
+        let ommers_hash = reth_primitives::proofs::calculate_ommers_root(block.ommers.iter());
+        if block.header.ommers_hash != ommers_hash {
+            return Err(reth_interfaces::Error::Consensus(ConsensusError::BodyOmmersHashDiff {
+                got: ommers_hash,
+                expected: block.header.ommers_hash,
+            }))
+        }
+        // Check transaction root
+        // TODO(onbjerg): This should probably be accessible directly on [Block]
+        let transaction_root =
+            reth_primitives::proofs::calculate_transaction_root(block.body.iter());
+        if block.header.transactions_root != transaction_root {
+            return Err(reth_interfaces::Error::Consensus(ConsensusError::BodyTransactionRootDiff {
+                got: transaction_root,
+                expected: block.header.transactions_root,
+            }))
+        }
+        // EIP-4895: Beacon chain push withdrawals as operations
+        if externals.chain_spec.fork(Hardfork::Shanghai).active_at_timestamp(block.timestamp) {
+            let withdrawals =
+                block.withdrawals.as_ref().ok_or(ConsensusError::BodyWithdrawalsMissing)?;
+            let withdrawals_root =
+                reth_primitives::proofs::calculate_withdrawals_root(withdrawals.iter());
+            let header_withdrawals_root =
+                block.withdrawals_root.as_ref().ok_or(ConsensusError::WithdrawalsRootMissing)?;
+            if withdrawals_root != *header_withdrawals_root {
+                return Err(reth_interfaces::Error::Consensus(
+                    ConsensusError::BodyWithdrawalsRootDiff {
+                        got: withdrawals_root,
+                        expected: *header_withdrawals_root,
+                    },
+                ))
+            }
+            // Validate that withdrawal index is monotonically increasing within a block.
+            if let Some(first) = withdrawals.first() {
+                let mut prev_index = first.index;
+                for withdrawal in withdrawals.iter().skip(1) {
+                    let expected = prev_index + 1;
+                    if expected != withdrawal.index {
+                        return Err(reth_interfaces::Error::Consensus(
+                            ConsensusError::WithdrawalIndexInvalid {
+                                got: withdrawal.index,
+                                expected,
+                            },
+                        ))
+                    }
+                    prev_index = withdrawal.index;
+                }
+            }
+        }
+        // === validate block ===
 
         let (unseal, senders) = block.into_components();
         let unseal = unseal.unseal();
