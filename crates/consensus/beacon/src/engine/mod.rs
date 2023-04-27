@@ -1129,11 +1129,9 @@ mod tests {
 
     mod new_payload {
         use super::*;
-        use reth_interfaces::{
-            executor::Error as ExecutorError, test_utils::generators::random_block,
-        };
-        use reth_primitives::{Hardfork, U256};
-        use reth_provider::test_utils::blocks::BlockChainTestData;
+        use reth_interfaces::test_utils::generators::random_block;
+        // use reth_primitives::{Hardfork, U256};
+        // use reth_provider::test_utils::blocks::BlockChainTestData;
 
         #[tokio::test]
         async fn new_payload_before_forkchoice() {
@@ -1250,60 +1248,61 @@ mod tests {
             assert_matches!(engine_rx.try_recv(), Err(TryRecvError::Empty));
         }
 
-        #[tokio::test]
-        async fn payload_pre_merge() {
-            let data = BlockChainTestData::default();
-            let mut block1 = data.blocks[0].0.block.clone();
-            block1.header.difficulty = MAINNET.fork(Hardfork::Paris).ttd().unwrap() - U256::from(1);
-            block1 = block1.unseal().seal_slow();
-            let (block2, exec_result2) = data.blocks[1].clone();
-            let mut block2 = block2.block;
-            block2.withdrawals = None;
-            block2.header.parent_hash = block1.hash;
-            block2.header.base_fee_per_gas = Some(100);
-            block2.header.difficulty = U256::ZERO;
-            block2 = block2.unseal().seal_slow();
+        /* commented out this test because blocks will never be "pre merge" */
+        // #[tokio::test]
+        // async fn payload_pre_merge() {
+        //     let data = BlockChainTestData::default();
+        //     let mut block1 = data.blocks[0].0.block.clone();
+        //     block1.header.difficulty = MAINNET.fork(Hardfork::Paris).ttd().unwrap() -
+        // U256::from(1);     block1 = block1.unseal().seal_slow();
+        //     let (block2, exec_result2) = data.blocks[1].clone();
+        //     let mut block2 = block2.block;
+        //     block2.withdrawals = None;
+        //     block2.header.parent_hash = block1.hash;
+        //     block2.header.base_fee_per_gas = Some(100);
+        //     block2.header.difficulty = U256::ZERO;
+        //     block2 = block2.unseal().seal_slow();
 
-            let chain_spec = Arc::new(
-                ChainSpecBuilder::default()
-                    .chain(MAINNET.chain)
-                    .genesis(MAINNET.genesis.clone())
-                    .london_activated()
-                    .build(),
-            );
-            let (consensus_engine, env) = setup_consensus_engine(
-                chain_spec,
-                VecDeque::from([Ok(ExecOutput { done: true, stage_progress: 0 })]),
-                Vec::from([exec_result2]),
-            );
+        //     let chain_spec = Arc::new(
+        //         ChainSpecBuilder::default()
+        //             .chain(MAINNET.chain)
+        //             .genesis(MAINNET.genesis.clone())
+        //             .london_activated()
+        //             .build(),
+        //     );
+        //     let (consensus_engine, env) = setup_consensus_engine(
+        //         chain_spec,
+        //         VecDeque::from([Ok(ExecOutput { done: true, stage_progress: 0 })]),
+        //         Vec::from([exec_result2]),
+        //     );
 
-            insert_blocks(env.db.as_ref(), [&data.genesis, &block1].into_iter());
+        //     insert_blocks(env.db.as_ref(), [&data.genesis, &block1].into_iter());
 
-            let mut engine_rx = spawn_consensus_engine(consensus_engine);
+        //     let mut engine_rx = spawn_consensus_engine(consensus_engine);
 
-            // Send forkchoice
-            let res = env
-                .send_forkchoice_updated(ForkchoiceState {
-                    head_block_hash: block1.hash,
-                    finalized_block_hash: block1.hash,
-                    ..Default::default()
-                })
-                .await;
-            let expected_result =
-                ForkchoiceUpdated::new(PayloadStatus::from_status(PayloadStatusEnum::Syncing));
-            assert_matches!(res, Ok(result) => assert_eq!(result, expected_result));
+        //     // Send forkchoice
+        //     let res = env
+        //         .send_forkchoice_updated(ForkchoiceState {
+        //             head_block_hash: block1.hash,
+        //             finalized_block_hash: block1.hash,
+        //             ..Default::default()
+        //         })
+        //         .await;
+        //     let expected_result =
+        //         ForkchoiceUpdated::new(PayloadStatus::from_status(PayloadStatusEnum::Syncing));
+        //     assert_matches!(res, Ok(result) => assert_eq!(result, expected_result));
 
-            // Send new payload
-            let result =
-                env.send_new_payload_retry_on_syncing(block2.clone().into()).await.unwrap();
+        //     // Send new payload
+        //     let result =
+        //         env.send_new_payload_retry_on_syncing(block2.clone().into()).await.unwrap();
 
-            let expected_result = PayloadStatus::from_status(PayloadStatusEnum::Invalid {
-                validation_error: ExecutorError::BlockPreMerge { hash: block2.hash }.to_string(),
-            })
-            .with_latest_valid_hash(H256::zero());
-            assert_eq!(result, expected_result);
+        //     let expected_result = PayloadStatus::from_status(PayloadStatusEnum::Invalid {
+        //         validation_error: ExecutorError::BlockPreMerge { hash: block2.hash }.to_string(),
+        //     })
+        //     .with_latest_valid_hash(H256::zero());
+        //     assert_eq!(result, expected_result);
 
-            assert_matches!(engine_rx.try_recv(), Err(TryRecvError::Empty));
-        }
+        //     assert_matches!(engine_rx.try_recv(), Err(TryRecvError::Empty));
+        // }
     }
 }

@@ -73,13 +73,11 @@ impl Default for BlockChainTestData {
 
 /// Genesis block
 pub fn genesis() -> SealedBlock {
-    SealedBlock {
-        header: Header { number: 0, difficulty: U256::from(1), ..Default::default() }
-            .seal(H256::zero()),
-        body: vec![],
-        ommers: vec![],
-        withdrawals: Some(vec![]),
-    }
+    let mut header =
+        Header { number: 0, difficulty: U256::from(1), ..Default::default() }.seal(H256::zero());
+    header.gas_limit = 1000000;
+    header.base_fee_per_gas = Some(1000);
+    SealedBlock { header, body: vec![], ommers: vec![], withdrawals: Some(vec![]) }
 }
 
 /// Block one that points to genesis
@@ -89,10 +87,19 @@ fn block1(number: BlockNumber) -> (SealedBlockWithSenders, PostState) {
     block.withdrawals = Some(vec![Withdrawal::default()]);
     let mut header = block.header.clone().unseal();
     header.number = number;
+    // set to satisfy moved consensus checks
+    header.difficulty = U256::from(0);
+    header.base_fee_per_gas = Some(875);
+    header.timestamp = 1681338455 + 1000; // shanghai timestamp + 1000
+    header.withdrawals_root =
+        Some(H256(hex!("84acf72a081dc4dc03576e1c007cfd904b213bb65faef5821cdd053312820430"))); // static ommers hash as of eip 3675
+                                                                                              // ---
     header.state_root =
         H256(hex!("5d035ccb3e75a9057452ff060b773b213ec1fc353426174068edfc3971a0b6bd"));
     header.parent_hash = H256::zero();
     block.header = header.seal_slow();
+    // eprintln!("block1 hash: {:#?}", block.hash());
+    eprintln!("block1: {:#?}", block);
 
     let mut post_state = PostState::default();
     // Transaction changes
@@ -133,11 +140,20 @@ fn block2(number: BlockNumber, parent_hash: H256) -> (SealedBlockWithSenders, Po
     block.withdrawals = Some(vec![Withdrawal::default()]);
     let mut header = block.header.clone().unseal();
     header.number = number;
+    // set to satisfy moved consensus checks
+    header.difficulty = U256::from(0);
+    header.base_fee_per_gas = Some(769);
+    header.timestamp = 1681338455 + 1000; // shanghai timestamp + 1000
+    header.withdrawals_root =
+        Some(H256(hex!("84acf72a081dc4dc03576e1c007cfd904b213bb65faef5821cdd053312820430"))); // static ommers hash as of eip 3675
+                                                                                              // ---
     header.state_root =
         H256(hex!("90101a13dd059fa5cca99ed93d1dc23657f63626c5b8f993a2ccbdf7446b64f8"));
     // parent_hash points to block1 hash
     header.parent_hash = parent_hash;
     block.header = header.seal_slow();
+    // eprintln!("block2 hash: {:#?}", block.hash());
+    eprintln!("block2: {:#?}", block);
 
     let mut post_state = PostState::default();
     // block changes

@@ -263,6 +263,13 @@ impl AppendableChain {
         }
         // Check gas limit, max diff between child/parent gas_limit should be
         // max_diff=parent_gas/1024
+        // eprintln!(
+        //     "parent_gas_limit: {}, gas_limit: {}, sub: {}, val: {}",
+        //     parent_gas_limit,
+        //     block.gas_limit,
+        //     block.gas_limit - parent_gas_limit,
+        //     parent_gas_limit / 1024
+        // );
         if block.gas_limit > parent_gas_limit {
             if block.gas_limit - parent_gas_limit >= parent_gas_limit / 1024 {
                 return Err(reth_interfaces::Error::Consensus(
