@@ -1,7 +1,4 @@
-use crate::{
-    consensus::Consensus,
-    p2p::error::{DownloadError, DownloadResult},
-};
+use crate::p2p::error::{DownloadError, DownloadResult};
 use futures::Stream;
 use reth_primitives::{BlockHashOrNumber, SealedHeader, H256};
 
@@ -71,22 +68,22 @@ impl SyncTarget {
 /// Validate whether the header is valid in relation to it's parent
 ///
 /// Returns Ok(false) if the
-pub fn validate_header_download(
-    consensus: &dyn Consensus,
-    header: &SealedHeader,
-    parent: &SealedHeader,
-) -> DownloadResult<()> {
-    ensure_parent(header, parent)?;
-    // validate header against parent
-    consensus
-        .validate_header_agains_parent(header, parent)
-        .map_err(|error| DownloadError::HeaderValidation { hash: parent.hash(), error })?;
-    // validate header standalone
-    consensus
-        .validate_header(header)
-        .map_err(|error| DownloadError::HeaderValidation { hash: parent.hash(), error })?;
-    Ok(())
-}
+// pub fn validate_header_download(
+//     consensus: &dyn Consensus,
+//     header: &SealedHeader,
+//     parent: &SealedHeader,
+// ) -> DownloadResult<()> {
+//     ensure_parent(header, parent)?;
+//     // validate header against parent
+//     consensus
+//         .validate_header_agains_parent(header, parent)
+//         .map_err(|error| DownloadError::HeaderValidation { hash: parent.hash(), error })?;
+//     // validate header standalone
+//     consensus
+//         .validate_header(header)
+//         .map_err(|error| DownloadError::HeaderValidation { hash: parent.hash(), error })?;
+//     Ok(())
+// }
 
 /// Ensures that the given `parent` header is the actual parent of the `header`
 pub fn ensure_parent(header: &SealedHeader, parent: &SealedHeader) -> DownloadResult<()> {

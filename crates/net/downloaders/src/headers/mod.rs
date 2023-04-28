@@ -1,8 +1,8 @@
-/// A Linear downloader implementation.
-pub mod reverse_headers;
+// A Linear downloader implementation.
+// pub mod reverse_headers;
 
-/// A downloader implementation that spawns a downloader to a task
-pub mod task;
+// A downloader implementation that spawns a downloader to a task
+// pub mod task;
 
-#[cfg(any(test, feature = "test-utils"))]
-pub mod test_utils;
+// #[cfg(any(test, feature = "test-utils"))]
+// pub mod test_utils;

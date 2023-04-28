@@ -9,13 +9,19 @@ use reth_provider::{
 };
 use reth_rpc::{JwtError, JwtSecret};
 use reth_rpc_builder::{
-    auth::{AuthServerConfig, AuthServerHandle},
+    auth::AuthServerHandle,
     constants,
     error::RpcError,
-    IpcServerBuilder, RethRpcModule, RpcModuleBuilder, RpcModuleSelection, RpcServerConfig,
-    RpcServerHandle, ServerBuilder, TransportRpcModuleConfig,
+    IpcServerBuilder,
+    RethRpcModule, // removed AuthServerConfig
+    RpcModuleBuilder,
+    RpcModuleSelection,
+    RpcServerConfig,
+    RpcServerHandle,
+    ServerBuilder,
+    TransportRpcModuleConfig,
 };
-use reth_rpc_engine_api::{EngineApi, EngineApiServer};
+// use reth_rpc_engine_api::{EngineApi, EngineApiServer};
 use reth_tasks::TaskSpawner;
 use reth_transaction_pool::TransactionPool;
 use std::{
@@ -122,15 +128,16 @@ impl RpcServerArgs {
     /// Returns the handles for the launched regular RPC server(s) (if any) and the server handle
     /// for the auth server that handles the `engine_` API that's accessed by the consensus
     /// layer.
-    pub async fn start_servers<Client, Pool, Network, Tasks, Events, Engine>(
+    pub async fn start_servers<Client, Pool, Network, Tasks, Events>(
+        // removed Engine
         &self,
         client: Client,
         pool: Pool,
         network: Network,
         executor: Tasks,
         events: Events,
-        engine_api: Engine,
-    ) -> Result<(RpcServerHandle, AuthServerHandle), RpcError>
+        // engine_api: Engine,
+    ) -> Result<RpcServerHandle, RpcError>
     where
         Client: BlockProvider
             + HeaderProvider
@@ -143,17 +150,17 @@ impl RpcServerArgs {
         Network: NetworkInfo + Peers + Clone + 'static,
         Tasks: TaskSpawner + Clone + 'static,
         Events: CanonStateSubscriptions + Clone + 'static,
-        Engine: EngineApiServer,
+        // Engine: EngineApiServer,
     {
-        let auth_config = self.auth_server_config()?;
+        // let auth_config = self.auth_server_config()?;
 
-        let (rpc_modules, auth_module) = RpcModuleBuilder::default()
+        let rpc_modules = RpcModuleBuilder::default()
             .with_client(client)
             .with_pool(pool)
             .with_network(network)
             .with_events(events)
             .with_executor(executor)
-            .build_with_auth_server(self.transport_rpc_module_config(), engine_api);
+            .build_with_auth_server(self.transport_rpc_module_config());
 
         let server_config = self.rpc_server_config();
         let has_server = server_config.has_server();
@@ -163,12 +170,13 @@ impl RpcServerArgs {
             }
         });
 
-        let launch_auth = auth_module.start_server(auth_config).inspect(|_| {
-            info!(target: "reth::cli", "Started Auth server");
-        });
+        // let launch_auth = auth_module.start_server(auth_config).inspect(|_| {
+        //     info!(target: "reth::cli", "Started Auth server");
+        // });
 
         // launch servers concurrently
-        futures::future::try_join(launch_rpc, launch_auth).await
+        // futures::future::try_join(launch_rpc, launch_auth).await
+        launch_rpc.await
     }
 
     /// Convenience function for starting a rpc server with configs which extracted from cli args.
@@ -212,7 +220,7 @@ impl RpcServerArgs {
         pool: Pool,
         network: Network,
         executor: Tasks,
-        engine_api: EngineApi<Client>,
+        // engine_api: EngineApi<Client>,
     ) -> Result<AuthServerHandle, RpcError>
     where
         Client: BlockProvider
@@ -236,7 +244,7 @@ impl RpcServerArgs {
             pool,
             network,
             executor,
-            engine_api,
+            // engine_api,
             socket_address,
             secret,
         )
@@ -293,16 +301,16 @@ impl RpcServerArgs {
         config
     }
 
-    /// Creates the [AuthServerConfig] from cli args.
-    fn auth_server_config(&self) -> Result<AuthServerConfig, RpcError> {
-        let secret = self.jwt_secret().map_err(|err| RpcError::Custom(err.to_string()))?;
-        let address = SocketAddr::new(
-            self.auth_addr.unwrap_or(IpAddr::V4(Ipv4Addr::UNSPECIFIED)),
-            self.auth_port.unwrap_or(constants::DEFAULT_AUTH_PORT),
-        );
+    // Creates the [AuthServerConfig] from cli args.
+    // fn auth_server_config(&self) -> Result<AuthServerConfig, RpcError> {
+    //     let secret = self.jwt_secret().map_err(|err| RpcError::Custom(err.to_string()))?;
+    //     let address = SocketAddr::new(
+    //         self.auth_addr.unwrap_or(IpAddr::V4(Ipv4Addr::UNSPECIFIED)),
+    //         self.auth_port.unwrap_or(constants::DEFAULT_AUTH_PORT),
+    //     );
 
-        Ok(AuthServerConfig::builder(secret).socket_addr(address).build())
-    }
+    //     Ok(AuthServerConfig::builder(secret).socket_addr(address).build())
+    // }
 }
 
 #[cfg(test)]

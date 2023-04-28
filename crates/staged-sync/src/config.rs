@@ -1,9 +1,9 @@
 //! Configuration files.
 use reth_discv4::Discv4Config;
-use reth_downloaders::{
-    bodies::bodies::BodiesDownloaderBuilder,
-    headers::reverse_headers::ReverseHeadersDownloaderBuilder,
-};
+// use reth_downloaders::{
+// bodies::bodies::BodiesDownloaderBuilder,
+// headers::reverse_headers::ReverseHeadersDownloaderBuilder,
+// };
 use reth_network::{NetworkConfigBuilder, PeersConfig, SessionsConfig};
 use secp256k1::SecretKey;
 use serde::{Deserialize, Serialize};
@@ -75,13 +75,13 @@ impl Default for HeadersConfig {
     }
 }
 
-impl From<HeadersConfig> for ReverseHeadersDownloaderBuilder {
-    fn from(config: HeadersConfig) -> Self {
-        ReverseHeadersDownloaderBuilder::default()
-            .request_limit(config.downloader_batch_size)
-            .stream_batch_size(config.commit_threshold as usize)
-    }
-}
+// impl From<HeadersConfig> for ReverseHeadersDownloaderBuilder {
+//     fn from(config: HeadersConfig) -> Self {
+//         ReverseHeadersDownloaderBuilder::default()
+//             .request_limit(config.downloader_batch_size)
+//             .stream_batch_size(config.commit_threshold as usize)
+//     }
+// }
 
 /// Total difficulty stage configuration
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Serialize)]
@@ -125,18 +125,18 @@ impl Default for BodiesConfig {
     }
 }
 
-impl From<BodiesConfig> for BodiesDownloaderBuilder {
-    fn from(config: BodiesConfig) -> Self {
-        BodiesDownloaderBuilder::default()
-            .with_stream_batch_size(config.downloader_stream_batch_size)
-            .with_request_limit(config.downloader_request_limit)
-            .with_max_buffered_responses(config.downloader_max_buffered_responses)
-            .with_concurrent_requests_range(
-                config.downloader_min_concurrent_requests..=
-                    config.downloader_max_concurrent_requests,
-            )
-    }
-}
+// impl From<BodiesConfig> for BodiesDownloaderBuilder {
+//     fn from(config: BodiesConfig) -> Self {
+//         BodiesDownloaderBuilder::default()
+//             .with_stream_batch_size(config.downloader_stream_batch_size)
+//             .with_request_limit(config.downloader_request_limit)
+//             .with_max_buffered_responses(config.downloader_max_buffered_responses)
+//             .with_concurrent_requests_range(
+//                 config.downloader_min_concurrent_requests..=
+//                     config.downloader_max_concurrent_requests,
+//             )
+//     }
+// }
 
 /// Sender recovery stage configuration.
 #[derive(Debug, Clone, Copy, Deserialize, PartialEq, Eq, Serialize)]

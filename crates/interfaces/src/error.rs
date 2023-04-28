@@ -8,8 +8,10 @@ pub enum Error {
     #[error(transparent)]
     Execution(#[from] crate::executor::Error),
 
+    // #[error(transparent)]
+    // Consensus(#[from] crate::consensus::ConsensusError),
     #[error(transparent)]
-    Consensus(#[from] crate::consensus::ConsensusError),
+    StaticValidity(#[from] crate::static_validity::StaticValidityError),
 
     #[error(transparent)]
     Database(#[from] crate::db::Error),

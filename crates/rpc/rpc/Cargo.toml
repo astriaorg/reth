@@ -20,13 +20,19 @@ reth-transaction-pool = { path = "../../transaction-pool", features = [
     "test-utils",
 ] }
 reth-network-api = { path = "../../net/network-api", features = ["test-utils"] }
-reth-rpc-engine-api = { path = "../rpc-engine-api" }
+# reth-rpc-engine-api = { path = "../rpc-engine-api" }
 reth-revm = { path = "../../revm" }
 reth-tasks = { path = "../../tasks" }
 
 # eth
-revm = { version = "3", features = ["optional_block_gas_limit", "optional_eip3607", "optional_no_base_fee"] }
-ethers-core = { git = "https://github.com/gakonst/ethers-rs", features = ["eip712"] }
+revm = { version = "3", features = [
+    "optional_block_gas_limit",
+    "optional_eip3607",
+    "optional_no_base_fee",
+] }
+ethers-core = { git = "https://github.com/gakonst/ethers-rs", features = [
+    "eip712",
+] }
 revm-primitives = { version = "1.1", features = ["serde"] }
 
 
@@ -49,7 +55,7 @@ bytes = "1.4"
 secp256k1 = { version = "0.26.0", features = [
     "global-context",
     "rand-std",
-    "recovery"
+    "recovery",
 ] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"

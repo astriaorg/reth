@@ -1,5 +1,5 @@
 //! Collection of methods for block validation.
-use reth_interfaces::{consensus::ConsensusError, Result as RethResult};
+use reth_interfaces::{static_validity::StaticValidityError, Result as RethResult};
 use reth_primitives::{
     constants, BlockNumber, ChainSpec, Hardfork, Header, InvalidTransactionError, SealedBlock,
     SealedHeader, Transaction, TransactionSignedEcRecovered, TxEip1559, TxEip2930, TxLegacy,
@@ -14,10 +14,10 @@ use std::{
 pub fn validate_header_standalone(
     header: &SealedHeader,
     chain_spec: &ChainSpec,
-) -> Result<(), ConsensusError> {
+) -> Result<(), StaticValidityError> {
     // Gas used needs to be less then gas limit. Gas used is going to be check after execution.
     if header.gas_used > header.gas_limit {
-        return Err(ConsensusError::HeaderGasUsedExceedsGasLimit {
+        return Err(StaticValidityError::HeaderGasUsedExceedsGasLimit {
             gas_used: header.gas_used,
             gas_limit: header.gas_limit,
         })
@@ -27,7 +27,7 @@ pub fn validate_header_standalone(
     let present_timestamp =
         SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs();
     if header.timestamp > present_timestamp {
-        return Err(ConsensusError::TimestampIsInFuture {
+        return Err(StaticValidityError::TimestampIsInFuture {
             timestamp: header.timestamp,
             present_timestamp,
         })
@@ -37,18 +37,18 @@ pub fn validate_header_standalone(
     if chain_spec.fork(Hardfork::London).active_at_block(header.number) &&
         header.base_fee_per_gas.is_none()
     {
-        return Err(ConsensusError::BaseFeeMissing)
+        return Err(StaticValidityError::BaseFeeMissing)
     }
 
     // EIP-4895: Beacon chain push withdrawals as operations
     if chain_spec.fork(Hardfork::Shanghai).active_at_timestamp(header.timestamp) &&
         header.withdrawals_root.is_none()
     {
-        return Err(ConsensusError::WithdrawalsRootMissing)
+        return Err(StaticValidityError::WithdrawalsRootMissing)
     } else if !chain_spec.fork(Hardfork::Shanghai).active_at_timestamp(header.timestamp) &&
         header.withdrawals_root.is_some()
     {
-        return Err(ConsensusError::WithdrawalsRootUnexpected)
+        return Err(StaticValidityError::WithdrawalsRootUnexpected)
     }
 
     Ok(())
@@ -62,7 +62,7 @@ pub fn validate_transaction_regarding_header(
     chain_spec: &ChainSpec,
     at_block_number: BlockNumber,
     base_fee: Option<u64>,
-) -> Result<(), ConsensusError> {
+) -> Result<(), StaticValidityError> {
     let chain_id = match transaction {
         Transaction::Legacy(TxLegacy { chain_id, .. }) => {
             // EIP-155: Simple replay attack protection: https://eips.ethereum.org/EIPS/eip-155
@@ -150,7 +150,7 @@ pub fn validate_all_transaction_regarding_block_and_nonces<
                 // Signer account shouldn't have bytecode. Presence of bytecode means this is a
                 // smartcontract.
                 if account.has_bytecode() {
-                    return Err(ConsensusError::from(
+                    return Err(StaticValidityError::from(
                         InvalidTransactionError::SignerAccountHasBytecode,
                     )
                     .into())
@@ -163,7 +163,7 @@ pub fn validate_all_transaction_regarding_block_and_nonces<
 
         // check nonce
         if transaction.nonce() != nonce {
-            return Err(ConsensusError::from(InvalidTransactionError::NonceNotConsistent).into())
+            return Err(StaticValidityError::from(InvalidTransactionError::NonceNotConsistent).into())
         }
     }
 
@@ -179,12 +179,12 @@ pub fn validate_all_transaction_regarding_block_and_nonces<
 pub fn validate_block_standalone(
     block: &SealedBlock,
     chain_spec: &ChainSpec,
-) -> Result<(), ConsensusError> {
+) -> Result<(), StaticValidityError> {
     // Check ommers hash
     // TODO(onbjerg): This should probably be accessible directly on [Block]
     let ommers_hash = reth_primitives::proofs::calculate_ommers_root(block.ommers.iter());
     if block.header.ommers_hash != ommers_hash {
-        return Err(ConsensusError::BodyOmmersHashDiff {
+        return Err(StaticValidityError::BodyOmmersHashDiff {
             got: ommers_hash,
             expected: block.header.ommers_hash,
         })
@@ -194,7 +194,7 @@ pub fn validate_block_standalone(
     // TODO(onbjerg): This should probably be accessible directly on [Block]
     let transaction_root = reth_primitives::proofs::calculate_transaction_root(block.body.iter());
     if block.header.transactions_root != transaction_root {
-        return Err(ConsensusError::BodyTransactionRootDiff {
+        return Err(StaticValidityError::BodyTransactionRootDiff {
             got: transaction_root,
             expected: block.header.transactions_root,
         })
@@ -203,13 +203,13 @@ pub fn validate_block_standalone(
     // EIP-4895: Beacon chain push withdrawals as operations
     if chain_spec.fork(Hardfork::Shanghai).active_at_timestamp(block.timestamp) {
         let withdrawals =
-            block.withdrawals.as_ref().ok_or(ConsensusError::BodyWithdrawalsMissing)?;
+            block.withdrawals.as_ref().ok_or(StaticValidityError::BodyWithdrawalsMissing)?;
         let withdrawals_root =
             reth_primitives::proofs::calculate_withdrawals_root(withdrawals.iter());
         let header_withdrawals_root =
-            block.withdrawals_root.as_ref().ok_or(ConsensusError::WithdrawalsRootMissing)?;
+            block.withdrawals_root.as_ref().ok_or(StaticValidityError::WithdrawalsRootMissing)?;
         if withdrawals_root != *header_withdrawals_root {
-            return Err(ConsensusError::BodyWithdrawalsRootDiff {
+            return Err(StaticValidityError::BodyWithdrawalsRootDiff {
                 got: withdrawals_root,
                 expected: *header_withdrawals_root,
             })
@@ -221,7 +221,7 @@ pub fn validate_block_standalone(
             for withdrawal in withdrawals.iter().skip(1) {
                 let expected = prev_index + 1;
                 if expected != withdrawal.index {
-                    return Err(ConsensusError::WithdrawalIndexInvalid {
+                    return Err(StaticValidityError::WithdrawalIndexInvalid {
                         got: withdrawal.index,
                         expected,
                     })
@@ -239,10 +239,10 @@ pub fn validate_header_regarding_parent(
     parent: &SealedHeader,
     child: &SealedHeader,
     chain_spec: &ChainSpec,
-) -> Result<(), ConsensusError> {
+) -> Result<(), StaticValidityError> {
     // Parent number is consistent.
     if parent.number + 1 != child.number {
-        return Err(ConsensusError::ParentBlockNumberMismatch {
+        return Err(StaticValidityError::ParentBlockNumberMismatch {
             parent_block_number: parent.number,
             block_number: child.number,
         })
@@ -250,7 +250,7 @@ pub fn validate_header_regarding_parent(
 
     // timestamp in past check
     if child.timestamp < parent.timestamp {
-        return Err(ConsensusError::TimestampIsInPast {
+        return Err(StaticValidityError::TimestampIsInPast {
             parent_timestamp: parent.timestamp,
             timestamp: child.timestamp,
         })
@@ -270,13 +270,13 @@ pub fn validate_header_regarding_parent(
     // Check gas limit, max diff between child/parent gas_limit should be  max_diff=parent_gas/1024
     if child.gas_limit > parent_gas_limit {
         if child.gas_limit - parent_gas_limit >= parent_gas_limit / 1024 {
-            return Err(ConsensusError::GasLimitInvalidIncrease {
+            return Err(StaticValidityError::GasLimitInvalidIncrease {
                 parent_gas_limit,
                 child_gas_limit: child.gas_limit,
             })
         }
     } else if parent_gas_limit - child.gas_limit >= parent_gas_limit / 1024 {
-        return Err(ConsensusError::GasLimitInvalidDecrease {
+        return Err(StaticValidityError::GasLimitInvalidDecrease {
             parent_gas_limit,
             child_gas_limit: child.gas_limit,
         })
@@ -284,17 +284,20 @@ pub fn validate_header_regarding_parent(
 
     // EIP-1559 check base fee
     if chain_spec.fork(Hardfork::London).active_at_block(child.number) {
-        let base_fee = child.base_fee_per_gas.ok_or(ConsensusError::BaseFeeMissing)?;
+        let base_fee = child.base_fee_per_gas.ok_or(StaticValidityError::BaseFeeMissing)?;
 
         let expected_base_fee =
             if chain_spec.fork(Hardfork::London).transitions_at_block(child.number) {
                 constants::EIP1559_INITIAL_BASE_FEE
             } else {
                 // This BaseFeeMissing will not happen as previous blocks are checked to have them.
-                parent.next_block_base_fee().ok_or(ConsensusError::BaseFeeMissing)?
+                parent.next_block_base_fee().ok_or(StaticValidityError::BaseFeeMissing)?
             };
         if expected_base_fee != base_fee {
-            return Err(ConsensusError::BaseFeeDiff { expected: expected_base_fee, got: base_fee })
+            return Err(StaticValidityError::BaseFeeDiff {
+                expected: expected_base_fee,
+                got: base_fee,
+            })
         }
     }
 
@@ -317,13 +320,13 @@ pub fn validate_block_regarding_chain<PROV: HeaderProvider + WithdrawalsProvider
 
     // Check if block is known.
     if provider.is_known(&hash)? {
-        return Err(ConsensusError::BlockKnown { hash, number: block.header.number }.into())
+        return Err(StaticValidityError::BlockKnown { hash, number: block.header.number }.into())
     }
 
     // Check if parent is known.
     let parent = provider
         .header(&block.parent_hash)?
-        .ok_or(ConsensusError::ParentUnknown { hash: block.parent_hash })?;
+        .ok_or(StaticValidityError::ParentUnknown { hash: block.parent_hash })?;
 
     // Check if withdrawals are valid.
     if let Some(withdrawals) = &block.withdrawals {
@@ -332,7 +335,7 @@ pub fn validate_block_regarding_chain<PROV: HeaderProvider + WithdrawalsProvider
             match latest_withdrawal {
                 Some(withdrawal) => {
                     if withdrawal.index + 1 != withdrawals.first().unwrap().index {
-                        return Err(ConsensusError::WithdrawalIndexInvalid {
+                        return Err(StaticValidityError::WithdrawalIndexInvalid {
                             got: withdrawals.first().unwrap().index,
                             expected: withdrawal.index + 1,
                         }
@@ -341,7 +344,7 @@ pub fn validate_block_regarding_chain<PROV: HeaderProvider + WithdrawalsProvider
                 }
                 None => {
                     if withdrawals.first().unwrap().index != 0 {
-                        return Err(ConsensusError::WithdrawalIndexInvalid {
+                        return Err(StaticValidityError::WithdrawalIndexInvalid {
                             got: withdrawals.first().unwrap().index,
                             expected: 0,
                         }
@@ -371,7 +374,7 @@ pub fn full_validation<Provider: HeaderProvider + AccountProvider + WithdrawalsP
     let transactions = block
         .body
         .iter()
-        .map(|tx| tx.try_ecrecovered().ok_or(ConsensusError::TransactionSignerRecoveryError))
+        .map(|tx| tx.try_ecrecovered().ok_or(StaticValidityError::TransactionSignerRecoveryError))
         .collect::<Result<Vec<_>, _>>()?;
 
     validate_all_transaction_regarding_block_and_nonces(
@@ -555,7 +558,7 @@ mod tests {
 
         assert_eq!(
             full_validation(&block, provider, &MAINNET),
-            Err(ConsensusError::BlockKnown { hash: block.hash(), number: block.number }.into()),
+            Err(StaticValidityError::BlockKnown { hash: block.hash(), number: block.number }.into()),
             "Should fail with error"
         );
     }
@@ -591,7 +594,7 @@ mod tests {
                 provider,
                 &MAINNET,
             ),
-            Err(ConsensusError::from(InvalidTransactionError::NonceNotConsistent).into())
+            Err(StaticValidityError::from(InvalidTransactionError::NonceNotConsistent).into())
         )
     }
 
@@ -610,7 +613,7 @@ mod tests {
                 provider,
                 &MAINNET,
             ),
-            Err(ConsensusError::from(InvalidTransactionError::NonceNotConsistent).into())
+            Err(StaticValidityError::from(InvalidTransactionError::NonceNotConsistent).into())
         );
     }
 
@@ -648,12 +651,12 @@ mod tests {
         let block = create_block_with_withdrawals(&[100, 102]);
         assert_matches!(
             validate_block_standalone(&block, &chain_spec),
-            Err(ConsensusError::WithdrawalIndexInvalid { .. })
+            Err(StaticValidityError::WithdrawalIndexInvalid { .. })
         );
         let block = create_block_with_withdrawals(&[5, 6, 7, 9]);
         assert_matches!(
             validate_block_standalone(&block, &chain_spec),
-            Err(ConsensusError::WithdrawalIndexInvalid { .. })
+            Err(StaticValidityError::WithdrawalIndexInvalid { .. })
         );
 
         let (_, parent) = mock_block();
@@ -663,7 +666,7 @@ mod tests {
         provider.withdrawals_provider.expect_latest_withdrawal().return_const(Ok(None));
         assert_matches!(
             validate_block_regarding_chain(&block, &provider),
-            Err(Consensus(ConsensusError::WithdrawalIndexInvalid { got: 1, expected: 0 }))
+            Err(Consensus(StaticValidityError::WithdrawalIndexInvalid { got: 1, expected: 0 }))
         );
         let block = create_block_with_withdrawals(&[0, 1, 2]);
         let res = validate_block_regarding_chain(&block, &provider);
@@ -678,7 +681,7 @@ mod tests {
             .return_const(Ok(Some(Withdrawal { index: 2, ..Default::default() })));
         assert_matches!(
             validate_block_regarding_chain(&block, &provider),
-            Err(Consensus(ConsensusError::WithdrawalIndexInvalid { got: 4, expected: 3 }))
+            Err(Consensus(StaticValidityError::WithdrawalIndexInvalid { got: 4, expected: 3 }))
         );
 
         let block = create_block_with_withdrawals(&[3, 4, 5]);

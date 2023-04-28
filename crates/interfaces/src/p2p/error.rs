@@ -1,5 +1,6 @@
 use super::headers::client::HeadersRequest;
-use crate::{consensus, db};
+use crate::{db, static_validity::StaticValidityError};
+// use crate::db;
 use reth_network_api::ReputationChangeKind;
 use reth_primitives::{BlockHashOrNumber, BlockNumber, Header, WithPeerId, H256};
 use std::ops::RangeInclusive;
@@ -125,7 +126,7 @@ pub enum DownloadError {
         hash: H256,
         /// The details of validation failure
         #[source]
-        error: consensus::ConsensusError,
+        error: StaticValidityError,
     },
     /// Error when checking that the current [`Header`] has the parent's hash as the parent_hash
     /// field, and that they have sequential block numbers.
@@ -180,7 +181,7 @@ pub enum DownloadError {
         hash: H256,
         /// The details of validation failure
         #[source]
-        error: consensus::ConsensusError,
+        error: StaticValidityError,
     },
     /// Received more bodies than requested.
     #[error("Received more bodies than requested. Expected: {expected}. Received: {received}")]

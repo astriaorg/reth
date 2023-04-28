@@ -8,10 +8,11 @@ use rayon::prelude::*;
 use reth_interfaces::{
     consensus::Consensus,
     p2p::{
-        error::{DownloadError, DownloadResult, PeerRequestResult},
+        error::{DownloadError, PeerRequestResult},
         headers::{
             client::{HeadersClient, HeadersRequest},
-            downloader::{validate_header_download, HeaderDownloader, SyncTarget},
+            // downloader::{validate_header_download, HeaderDownloader, SyncTarget},
+            downloader::{HeaderDownloader, SyncTarget},
         },
         priority::Priority,
     },
@@ -546,10 +547,10 @@ where
         }
     }
 
-    /// Validate whether the header is valid in relation to it's parent
-    fn validate(&self, header: &SealedHeader, parent: &SealedHeader) -> DownloadResult<()> {
-        validate_header_download(&self.consensus, header, parent)
-    }
+    // Validate whether the header is valid in relation to it's parent
+    // fn validate(&self, header: &SealedHeader, parent: &SealedHeader) -> DownloadResult<()> {
+    //     validate_header_download(&self.consensus, header, parent)
+    // }
 
     /// Clears all requests/responses.
     fn clear(&mut self) {

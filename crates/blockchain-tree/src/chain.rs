@@ -5,8 +5,9 @@
 use crate::{post_state::PostState, PostStateDataRef};
 use reth_db::database::Database;
 use reth_interfaces::{
-    consensus::{Consensus, ConsensusError},
+    // consensus::{Consensus, ConsensusError},
     executor::Error as ExecError,
+    static_validity::StaticValidityError,
     Error,
 };
 use reth_primitives::{
@@ -49,9 +50,9 @@ impl DerefMut for AppendableChain {
 }
 
 // added this
-fn validate_header_extradata(header: &Header) -> Result<(), ConsensusError> {
+fn validate_header_extradata(header: &Header) -> Result<(), StaticValidityError> {
     if header.extra_data.len() > 32 {
-        Err(ConsensusError::ExtraDataExceedsMax { len: header.extra_data.len() })
+        Err(StaticValidityError::ExtraDataExceedsMax { len: header.extra_data.len() })
     } else {
         Ok(())
     }
@@ -69,16 +70,17 @@ impl AppendableChain {
     }
 
     /// Create a new chain that forks off of the canonical chain.
-    pub fn new_canonical_fork<DB, C, EF>(
+    pub fn new_canonical_fork<DB, EF>(
         block: &SealedBlockWithSenders,
         parent_header: &SealedHeader,
         canonical_block_hashes: &BTreeMap<BlockNumber, BlockHash>,
         canonical_fork: ForkBlock,
-        externals: &TreeExternals<DB, C, EF>,
+        // externals: &TreeExternals<DB, C, EF>,
+        externals: &TreeExternals<DB, EF>,
     ) -> Result<Self, Error>
     where
         DB: Database,
-        C: Consensus,
+        // C: StaticValidity,
         EF: ExecutorFactory,
     {
         let state = PostState::default();
@@ -103,17 +105,18 @@ impl AppendableChain {
     }
 
     /// Create a new chain that forks off of an existing sidechain.
-    pub fn new_chain_fork<DB, C, EF>(
+    pub fn new_chain_fork<DB, EF>(
         &self,
         block: SealedBlockWithSenders,
         side_chain_block_hashes: BTreeMap<BlockNumber, BlockHash>,
         canonical_block_hashes: &BTreeMap<BlockNumber, BlockHash>,
         canonical_fork: ForkBlock,
-        externals: &TreeExternals<DB, C, EF>,
+        // externals: &TreeExternals<DB, C, EF>,
+        externals: &TreeExternals<DB, EF>,
     ) -> Result<Self, Error>
     where
         DB: Database,
-        C: Consensus,
+        // C: StaticValidity,
         EF: ExecutorFactory,
     {
         let parent_number = block.number - 1;
@@ -151,17 +154,18 @@ impl AppendableChain {
     }
 
     /// Validate and execute the given block.
-    fn validate_and_execute<PSDP, DB, C, EF>(
+    fn validate_and_execute<PSDP, DB, EF>(
         block: SealedBlockWithSenders,
         parent_block: &SealedHeader,
         canonical_fork: ForkBlock,
         post_state_data_provider: PSDP,
-        externals: &TreeExternals<DB, C, EF>,
+        // externals: &TreeExternals<DB, C, EF>,
+        externals: &TreeExternals<DB, EF>,
     ) -> Result<PostState, Error>
     where
         PSDP: PostStateDataProvider,
         DB: Database,
-        C: Consensus,
+        // C: StaticValidity,
         EF: ExecutorFactory,
     {
         // === validate header with total difficulty ===
@@ -174,18 +178,18 @@ impl AppendableChain {
             .active_at_ttd(U256::MAX, block.header.difficulty)
         {
             if block.header.difficulty != U256::ZERO {
-                return Err(reth_interfaces::Error::Consensus(
-                    ConsensusError::TheMergeDifficultyIsNotZero,
+                return Err(reth_interfaces::Error::StaticValidity(
+                    StaticValidityError::TheMergeDifficultyIsNotZero,
                 ))
             }
             if block.header.nonce != 0 {
-                return Err(reth_interfaces::Error::Consensus(
-                    ConsensusError::TheMergeNonceIsNotZero,
+                return Err(reth_interfaces::Error::StaticValidity(
+                    StaticValidityError::TheMergeNonceIsNotZero,
                 ))
             }
             if block.header.ommers_hash != EMPTY_OMMER_ROOT {
-                return Err(reth_interfaces::Error::Consensus(
-                    ConsensusError::TheMergeOmmerRootIsNotEmpty,
+                return Err(reth_interfaces::Error::StaticValidity(
+                    StaticValidityError::TheMergeOmmerRootIsNotEmpty,
                 ))
             }
             validate_header_extradata(&block.header)?;
@@ -198,8 +202,8 @@ impl AppendableChain {
         // externals.consensus.validate_header(&block)?;
         // Gas used needs to be less then gas limit. Gas used is going to be check after execution.
         if block.header.gas_used > block.header.gas_limit {
-            return Err(reth_interfaces::Error::Consensus(
-                ConsensusError::HeaderGasUsedExceedsGasLimit {
+            return Err(reth_interfaces::Error::StaticValidity(
+                StaticValidityError::HeaderGasUsedExceedsGasLimit {
                     gas_used: block.header.gas_used,
                     gas_limit: block.header.gas_limit,
                 },
@@ -209,29 +213,35 @@ impl AppendableChain {
         let present_timestamp =
             SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs();
         if block.header.timestamp > present_timestamp {
-            return Err(reth_interfaces::Error::Consensus(ConsensusError::TimestampIsInFuture {
-                timestamp: block.header.timestamp,
-                present_timestamp,
-            }))
+            return Err(reth_interfaces::Error::StaticValidity(
+                StaticValidityError::TimestampIsInFuture {
+                    timestamp: block.header.timestamp,
+                    present_timestamp,
+                },
+            ))
         }
         // Check if base fee is set.
         if externals.chain_spec.fork(Hardfork::London).active_at_block(block.header.number) &&
             block.header.base_fee_per_gas.is_none()
         {
-            return Err(reth_interfaces::Error::Consensus(ConsensusError::BaseFeeMissing))
+            return Err(reth_interfaces::Error::StaticValidity(StaticValidityError::BaseFeeMissing))
         }
         // EIP-4895: Beacon chain push withdrawals as operations
         if externals.chain_spec.fork(Hardfork::Shanghai).active_at_timestamp(block.header.timestamp) &&
             block.header.withdrawals_root.is_none()
         {
-            return Err(reth_interfaces::Error::Consensus(ConsensusError::WithdrawalsRootMissing))
+            return Err(reth_interfaces::Error::StaticValidity(
+                StaticValidityError::WithdrawalsRootMissing,
+            ))
         } else if !externals
             .chain_spec
             .fork(Hardfork::Shanghai)
             .active_at_timestamp(block.header.timestamp) &&
             block.header.withdrawals_root.is_some()
         {
-            return Err(reth_interfaces::Error::Consensus(ConsensusError::WithdrawalsRootUnexpected))
+            return Err(reth_interfaces::Error::StaticValidity(
+                StaticValidityError::WithdrawalsRootUnexpected,
+            ))
         }
         // === validate header ===
 
@@ -239,8 +249,8 @@ impl AppendableChain {
         // externals.consensus.validate_header_agains_parent(&block, parent_block)?;
         // Parent number is consistent.
         if parent_block.number + 1 != block.number {
-            return Err(reth_interfaces::Error::Consensus(
-                ConsensusError::ParentBlockNumberMismatch {
+            return Err(reth_interfaces::Error::StaticValidity(
+                StaticValidityError::ParentBlockNumberMismatch {
                     parent_block_number: parent_block.number,
                     block_number: block.number,
                 },
@@ -248,10 +258,12 @@ impl AppendableChain {
         }
         // timestamp in past check
         if block.timestamp < parent_block.timestamp {
-            return Err(reth_interfaces::Error::Consensus(ConsensusError::TimestampIsInPast {
-                parent_timestamp: parent_block.timestamp,
-                timestamp: block.timestamp,
-            }))
+            return Err(reth_interfaces::Error::StaticValidity(
+                StaticValidityError::TimestampIsInPast {
+                    parent_timestamp: parent_block.timestamp,
+                    timestamp: block.timestamp,
+                },
+            ))
         }
         // TODO Check difficulty increment between parent and child
         // Ace age did increment it by some formula that we need to follow.
@@ -272,22 +284,24 @@ impl AppendableChain {
         // );
         if block.gas_limit > parent_gas_limit {
             if block.gas_limit - parent_gas_limit >= parent_gas_limit / 1024 {
-                return Err(reth_interfaces::Error::Consensus(
-                    ConsensusError::GasLimitInvalidIncrease {
+                return Err(reth_interfaces::Error::StaticValidity(
+                    StaticValidityError::GasLimitInvalidIncrease {
                         parent_gas_limit,
                         child_gas_limit: block.gas_limit,
                     },
                 ))
             }
         } else if parent_gas_limit - block.gas_limit >= parent_gas_limit / 1024 {
-            return Err(reth_interfaces::Error::Consensus(ConsensusError::GasLimitInvalidDecrease {
-                parent_gas_limit,
-                child_gas_limit: block.gas_limit,
-            }))
+            return Err(reth_interfaces::Error::StaticValidity(
+                StaticValidityError::GasLimitInvalidDecrease {
+                    parent_gas_limit,
+                    child_gas_limit: block.gas_limit,
+                },
+            ))
         }
         // EIP-1559 check base fee
         if externals.chain_spec.fork(Hardfork::London).active_at_block(block.number) {
-            let base_fee = block.base_fee_per_gas.ok_or(ConsensusError::BaseFeeMissing)?;
+            let base_fee = block.base_fee_per_gas.ok_or(StaticValidityError::BaseFeeMissing)?;
 
             let expected_base_fee =
                 if externals.chain_spec.fork(Hardfork::London).transitions_at_block(block.number) {
@@ -295,13 +309,12 @@ impl AppendableChain {
                 } else {
                     // This BaseFeeMissing will not happen as previous blocks are checked to have
                     // them.
-                    parent_block.next_block_base_fee().ok_or(ConsensusError::BaseFeeMissing)?
+                    parent_block.next_block_base_fee().ok_or(StaticValidityError::BaseFeeMissing)?
                 };
             if expected_base_fee != base_fee {
-                return Err(reth_interfaces::Error::Consensus(ConsensusError::BaseFeeDiff {
-                    expected: expected_base_fee,
-                    got: base_fee,
-                }))
+                return Err(reth_interfaces::Error::StaticValidity(
+                    StaticValidityError::BaseFeeDiff { expected: expected_base_fee, got: base_fee },
+                ))
             }
         }
         // === validate header against parent ===
@@ -310,32 +323,38 @@ impl AppendableChain {
         // externals.consensus.validate_block(&block)?;
         let ommers_hash = reth_primitives::proofs::calculate_ommers_root(block.ommers.iter());
         if block.header.ommers_hash != ommers_hash {
-            return Err(reth_interfaces::Error::Consensus(ConsensusError::BodyOmmersHashDiff {
-                got: ommers_hash,
-                expected: block.header.ommers_hash,
-            }))
+            return Err(reth_interfaces::Error::StaticValidity(
+                StaticValidityError::BodyOmmersHashDiff {
+                    got: ommers_hash,
+                    expected: block.header.ommers_hash,
+                },
+            ))
         }
         // Check transaction root
         // TODO(onbjerg): This should probably be accessible directly on [Block]
         let transaction_root =
             reth_primitives::proofs::calculate_transaction_root(block.body.iter());
         if block.header.transactions_root != transaction_root {
-            return Err(reth_interfaces::Error::Consensus(ConsensusError::BodyTransactionRootDiff {
-                got: transaction_root,
-                expected: block.header.transactions_root,
-            }))
+            return Err(reth_interfaces::Error::StaticValidity(
+                StaticValidityError::BodyTransactionRootDiff {
+                    got: transaction_root,
+                    expected: block.header.transactions_root,
+                },
+            ))
         }
         // EIP-4895: Beacon chain push withdrawals as operations
         if externals.chain_spec.fork(Hardfork::Shanghai).active_at_timestamp(block.timestamp) {
             let withdrawals =
-                block.withdrawals.as_ref().ok_or(ConsensusError::BodyWithdrawalsMissing)?;
+                block.withdrawals.as_ref().ok_or(StaticValidityError::BodyWithdrawalsMissing)?;
             let withdrawals_root =
                 reth_primitives::proofs::calculate_withdrawals_root(withdrawals.iter());
-            let header_withdrawals_root =
-                block.withdrawals_root.as_ref().ok_or(ConsensusError::WithdrawalsRootMissing)?;
+            let header_withdrawals_root = block
+                .withdrawals_root
+                .as_ref()
+                .ok_or(StaticValidityError::WithdrawalsRootMissing)?;
             if withdrawals_root != *header_withdrawals_root {
-                return Err(reth_interfaces::Error::Consensus(
-                    ConsensusError::BodyWithdrawalsRootDiff {
+                return Err(reth_interfaces::Error::StaticValidity(
+                    StaticValidityError::BodyWithdrawalsRootDiff {
                         got: withdrawals_root,
                         expected: *header_withdrawals_root,
                     },
@@ -347,8 +366,8 @@ impl AppendableChain {
                 for withdrawal in withdrawals.iter().skip(1) {
                     let expected = prev_index + 1;
                     if expected != withdrawal.index {
-                        return Err(reth_interfaces::Error::Consensus(
-                            ConsensusError::WithdrawalIndexInvalid {
+                        return Err(reth_interfaces::Error::StaticValidity(
+                            StaticValidityError::WithdrawalIndexInvalid {
                                 got: withdrawal.index,
                                 expected,
                             },
@@ -376,17 +395,18 @@ impl AppendableChain {
     }
 
     /// Validate and execute the given block, and append it to this chain.
-    pub fn append_block<DB, C, EF>(
+    pub fn append_block<DB, EF>(
         &mut self,
         block: SealedBlockWithSenders,
         side_chain_block_hashes: BTreeMap<BlockNumber, BlockHash>,
         canonical_block_hashes: &BTreeMap<BlockNumber, BlockHash>,
         canonical_fork: ForkBlock,
-        externals: &TreeExternals<DB, C, EF>,
+        // externals: &TreeExternals<DB, C, EF>,
+        externals: &TreeExternals<DB, EF>,
     ) -> Result<(), Error>
     where
         DB: Database,
-        C: Consensus,
+        // C: StaticValidity,
         EF: ExecutorFactory,
     {
         let (_, parent_block) = self.blocks.last_key_value().expect("Chain has at least one block");

@@ -1,15 +1,17 @@
 //! Testing support for headers related interfaces.
 use crate::{
-    consensus::{self, Consensus, ConsensusError},
     p2p::{
         download::DownloadClient,
         error::{DownloadError, DownloadResult, PeerRequestResult, RequestError},
         headers::{
             client::{HeadersClient, HeadersRequest, StatusUpdater},
-            downloader::{validate_header_download, HeaderDownloader, SyncTarget},
+            // downloader::{validate_header_download, HeaderDownloader, SyncTarget},
+            downloader::{HeaderDownloader, SyncTarget},
         },
         priority::Priority,
     },
+    static_validity,
+    static_validity::{StaticValidity, StaticValidityError},
 };
 use futures::{future, Future, FutureExt, Stream, StreamExt};
 use reth_eth_wire::BlockHeaders;
@@ -67,10 +69,10 @@ impl TestHeaderDownloader {
         }
     }
 
-    /// Validate whether the header is valid in relation to it's parent
-    fn validate(&self, header: &SealedHeader, parent: &SealedHeader) -> DownloadResult<()> {
-        validate_header_download(&self.consensus, header, parent)
-    }
+    // Validate whether the header is valid in relation to it's parent
+    // fn validate(&self, header: &SealedHeader, parent: &SealedHeader) -> DownloadResult<()> {
+    //     validate_header_download(&self.consensus, header, parent)
+    // }
 }
 
 impl HeaderDownloader for TestHeaderDownloader {
@@ -305,10 +307,10 @@ impl StatusUpdater for TestStatusUpdater {
 }
 
 #[async_trait::async_trait]
-impl Consensus for TestConsensus {
-    fn validate_header(&self, _header: &SealedHeader) -> Result<(), ConsensusError> {
+impl StaticValidity for TestConsensus {
+    fn validate_header(&self, _header: &SealedHeader) -> Result<(), StaticValidityError> {
         if self.fail_validation() {
-            Err(consensus::ConsensusError::BaseFeeMissing)
+            Err(StaticValidityError::BaseFeeMissing)
         } else {
             Ok(())
         }
@@ -318,9 +320,9 @@ impl Consensus for TestConsensus {
         &self,
         header: &SealedHeader,
         parent: &SealedHeader,
-    ) -> Result<(), ConsensusError> {
+    ) -> Result<(), StaticValidityError> {
         if self.fail_validation() {
-            Err(consensus::ConsensusError::BaseFeeMissing)
+            Err(StaticValidityError::BaseFeeMissing)
         } else {
             Ok(())
         }
@@ -330,17 +332,17 @@ impl Consensus for TestConsensus {
         &self,
         header: &Header,
         total_difficulty: U256,
-    ) -> Result<(), ConsensusError> {
+    ) -> Result<(), StaticValidityError> {
         if self.fail_validation() {
-            Err(consensus::ConsensusError::BaseFeeMissing)
+            Err(static_validity::StaticValidityError::BaseFeeMissing)
         } else {
             Ok(())
         }
     }
 
-    fn validate_block(&self, _block: &SealedBlock) -> Result<(), consensus::ConsensusError> {
+    fn validate_block(&self, _block: &SealedBlock) -> Result<(), StaticValidityError> {
         if self.fail_validation() {
-            Err(consensus::ConsensusError::BaseFeeMissing)
+            Err(StaticValidityError::BaseFeeMissing)
         } else {
             Ok(())
         }

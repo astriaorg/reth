@@ -5163,7 +5163,6 @@ dependencies = [
 name = "reth-revm"
 version = "0.1.0"
 dependencies = [
- "reth-consensus-common",
  "reth-interfaces",
  "reth-primitives",
  "reth-provider",
@@ -5243,7 +5242,6 @@ dependencies = [
  "reth-revm",
  "reth-rlp",
  "reth-rpc-api",
- "reth-rpc-engine-api",
  "reth-rpc-types",
  "reth-tasks",
  "reth-transaction-pool",
@@ -5278,7 +5276,6 @@ version = "0.1.0"
 dependencies = [
  "hyper",
  "jsonrpsee",
- "reth-beacon-consensus",
  "reth-interfaces",
  "reth-ipc",
  "reth-network-api",
@@ -5287,7 +5284,6 @@ dependencies = [
  "reth-provider",
  "reth-rpc",
  "reth-rpc-api",
- "reth-rpc-engine-api",
  "reth-rpc-types",
  "reth-tasks",
  "reth-tracing",
@@ -5310,7 +5306,6 @@ dependencies = [
  "async-trait",
  "jsonrpsee-core",
  "jsonrpsee-types",
- "reth-beacon-consensus",
  "reth-interfaces",
  "reth-payload-builder",
  "reth-primitives",
@@ -5446,7 +5441,6 @@ dependencies = [
  "parking_lot 0.12.1",
  "paste",
  "rand 0.8.5",
- "reth-consensus-common",
  "reth-interfaces",
  "reth-metrics-derive",
  "reth-primitives",

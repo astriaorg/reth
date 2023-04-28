@@ -1,7 +1,7 @@
 use crate::{EngineApiError, EngineApiMessageVersion, EngineApiResult};
 use async_trait::async_trait;
 use jsonrpsee_core::RpcResult as Result;
-use reth_beacon_consensus::BeaconConsensusEngineHandle;
+// use reth_beacon_consensus::BeaconConsensusEngineHandle;
 use reth_interfaces::consensus::ForkchoiceState;
 use reth_payload_builder::PayloadStore;
 use reth_primitives::{BlockHash, BlockId, BlockNumber, ChainSpec, Hardfork, U64};

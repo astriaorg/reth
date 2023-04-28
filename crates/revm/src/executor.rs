@@ -6,7 +6,7 @@ use crate::{
     stack::{InspectorStack, InspectorStackConfig},
     to_reth_acc,
 };
-use reth_consensus_common::calc;
+// use reth_consensus_common::calc;
 use reth_interfaces::executor::Error;
 use reth_primitives::{
     Account, Address, Block, BlockNumber, Bloom, Bytecode, ChainSpec, Hardfork, Header, Receipt,
@@ -517,30 +517,31 @@ pub fn verify_receipt<'a>(
 #[inline]
 pub fn post_block_balance_increments(
     chain_spec: &ChainSpec,
-    block_number: u64,
-    block_difficulty: U256,
-    beneficiary: Address,
+    _block_number: u64,
+    _block_difficulty: U256,
+    _beneficiary: Address,
     block_timestamp: u64,
-    total_difficulty: U256,
-    ommers: &[Header],
+    _total_difficulty: U256,
+    _ommers: &[Header],
     withdrawals: Option<&[Withdrawal]>,
 ) -> HashMap<Address, U256> {
     let mut balance_increments = HashMap::new();
 
     // Add block rewards if they are enabled.
-    if let Some(base_block_reward) =
-        calc::base_block_reward(chain_spec, block_number, block_difficulty, total_difficulty)
-    {
-        // Ommer rewards
-        for ommer in ommers {
-            *balance_increments.entry(ommer.beneficiary).or_default() +=
-                calc::ommer_reward(base_block_reward, block_number, ommer.number);
-        }
+    // don't need block rewards
+    // if let Some(base_block_reward) =
+    //     calc::base_block_reward(chain_spec, block_number, block_difficulty, total_difficulty)
+    // {
+    //     // Ommer rewards
+    //     for ommer in ommers {
+    //         *balance_increments.entry(ommer.beneficiary).or_default() +=
+    //             calc::ommer_reward(base_block_reward, block_number, ommer.number);
+    //     }
 
-        // Full block reward
-        *balance_increments.entry(beneficiary).or_default() +=
-            calc::block_reward(base_block_reward, ommers.len());
-    }
+    //     // Full block reward
+    //     *balance_increments.entry(beneficiary).or_default() +=
+    //         calc::block_reward(base_block_reward, ommers.len());
+    // }
 
     // process withdrawals
     insert_post_block_withdrawals_balance_increments(

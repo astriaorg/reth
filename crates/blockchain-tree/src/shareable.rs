@@ -4,7 +4,7 @@ use parking_lot::RwLock;
 use reth_db::database::Database;
 use reth_interfaces::{
     blockchain_tree::{BlockStatus, BlockchainTreeEngine, BlockchainTreeViewer},
-    consensus::Consensus,
+    // consensus::Consensus,
     Error,
 };
 use reth_primitives::{BlockHash, BlockNumHash, BlockNumber, SealedBlock, SealedBlockWithSenders};
@@ -19,21 +19,25 @@ use std::{
 
 /// Shareable blockchain tree that is behind tokio::RwLock
 #[derive(Clone)]
-pub struct ShareableBlockchainTree<DB: Database, C: Consensus, EF: ExecutorFactory> {
+// pub struct ShareableBlockchainTree<DB: Database, C: Consensus, EF: ExecutorFactory> {
+pub struct ShareableBlockchainTree<DB: Database, EF: ExecutorFactory> {
     /// BlockchainTree
-    pub tree: Arc<RwLock<BlockchainTree<DB, C, EF>>>,
+    // pub tree: Arc<RwLock<BlockchainTree<DB, C, EF>>>,
+    pub tree: Arc<RwLock<BlockchainTree<DB, EF>>>,
 }
 
-impl<DB: Database, C: Consensus, EF: ExecutorFactory> ShareableBlockchainTree<DB, C, EF> {
+// impl<DB: Database, C: Consensus, EF: ExecutorFactory> ShareableBlockchainTree<DB, C, EF> {
+impl<DB: Database, EF: ExecutorFactory> ShareableBlockchainTree<DB, EF> {
     /// Create New sharable database.
-    pub fn new(tree: BlockchainTree<DB, C, EF>) -> Self {
+    // pub fn new(tree: BlockchainTree<DB, C, EF>) -> Self {
+    pub fn new(tree: BlockchainTree<DB, EF>) -> Self {
         Self { tree: Arc::new(RwLock::new(tree)) }
     }
 }
 
-impl<DB: Database, C: Consensus, EF: ExecutorFactory> BlockchainTreeEngine
-    for ShareableBlockchainTree<DB, C, EF>
-{
+// impl<DB: Database, C: Consensus, EF: ExecutorFactory> BlockchainTreeEngine
+// for ShareableBlockchainTree<DB, C, EF>
+impl<DB: Database, EF: ExecutorFactory> BlockchainTreeEngine for ShareableBlockchainTree<DB, EF> {
     /// Recover senders and call [`BlockchainTreeEngine::insert_block_with_senders`].
     fn insert_block(&self, block: SealedBlock) -> Result<BlockStatus, Error> {
         let mut tree = self.tree.write();
@@ -68,9 +72,9 @@ impl<DB: Database, C: Consensus, EF: ExecutorFactory> BlockchainTreeEngine
     }
 }
 
-impl<DB: Database, C: Consensus, EF: ExecutorFactory> BlockchainTreeViewer
-    for ShareableBlockchainTree<DB, C, EF>
-{
+// impl<DB: Database, C: Consensus, EF: ExecutorFactory> BlockchainTreeViewer
+// for ShareableBlockchainTree<DB, C, EF>
+impl<DB: Database, EF: ExecutorFactory> BlockchainTreeViewer for ShareableBlockchainTree<DB, EF> {
     fn blocks(&self) -> BTreeMap<BlockNumber, HashSet<BlockHash>> {
         self.tree.read().block_indices().index_of_number_to_pending_blocks().clone()
     }
@@ -97,8 +101,10 @@ impl<DB: Database, C: Consensus, EF: ExecutorFactory> BlockchainTreeViewer
     }
 }
 
-impl<DB: Database, C: Consensus, EF: ExecutorFactory> BlockchainTreePendingStateProvider
-    for ShareableBlockchainTree<DB, C, EF>
+// impl<DB: Database, C: Consensus, EF: ExecutorFactory> BlockchainTreePendingStateProvider
+// for ShareableBlockchainTree<DB, C, EF>
+impl<DB: Database, EF: ExecutorFactory> BlockchainTreePendingStateProvider
+    for ShareableBlockchainTree<DB, EF>
 {
     fn find_pending_state_provider(
         &self,
@@ -109,8 +115,10 @@ impl<DB: Database, C: Consensus, EF: ExecutorFactory> BlockchainTreePendingState
     }
 }
 
-impl<DB: Database, C: Consensus, EF: ExecutorFactory> CanonStateSubscriptions
-    for ShareableBlockchainTree<DB, C, EF>
+// impl<DB: Database, C: Consensus, EF: ExecutorFactory> CanonStateSubscriptions
+// for ShareableBlockchainTree<DB, C, EF>
+impl<DB: Database, EF: ExecutorFactory> CanonStateSubscriptions
+    for ShareableBlockchainTree<DB, EF>
 {
     fn subscribe_to_canonical_state(&self) -> reth_provider::CanonStateNotifications {
         self.tree.read().subscribe_canon_state()

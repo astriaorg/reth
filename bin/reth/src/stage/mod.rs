@@ -2,21 +2,21 @@
 //!
 //! Stage debugging tool
 use crate::{
-    args::{get_secret_key, NetworkArgs, StageEnum},
+    args::{NetworkArgs, StageEnum}, // removed get_secret_key
     dirs::{ConfigPath, DbPath, MaybePlatformPath, PlatformPath, SecretKeyPath},
     prometheus_exporter,
 };
 use clap::Parser;
-use reth_beacon_consensus::BeaconConsensus;
-use reth_downloaders::bodies::bodies::BodiesDownloaderBuilder;
+// use reth_beacon_consensus::BeaconConsensus;
+// use reth_downloaders::bodies::bodies::BodiesDownloaderBuilder;
 use reth_primitives::ChainSpec;
-use reth_provider::{ShareableDatabase, Transaction};
+use reth_provider::Transaction; // removed ShareableDatabase
 use reth_staged_sync::{
     utils::{chainspec::chain_spec_value_parser, init::init_db},
     Config,
 };
 use reth_stages::{
-    stages::{BodyStage, ExecutionStage, MerkleStage, SenderRecoveryStage, TransactionLookupStage},
+    stages::{ExecutionStage, MerkleStage, SenderRecoveryStage, TransactionLookupStage}, /* removed BodyStage */
     ExecInput, Stage, StageId, UnwindInput,
 };
 use std::{net::SocketAddr, sync::Arc};
@@ -126,7 +126,7 @@ impl Command {
 
         match self.stage {
             StageEnum::Bodies => {
-                let consensus = Arc::new(BeaconConsensus::new(self.chain.clone()));
+                // let consensus = Arc::new(BeaconConsensus::new(self.chain.clone()));
 
                 let mut config = config;
                 config.peers.connect_trusted_nodes_only = self.network.trusted_only;
@@ -136,35 +136,35 @@ impl Command {
                     });
                 }
 
-                let p2p_secret_key = get_secret_key(&self.p2p_secret_key)?;
+                // let p2p_secret_key = get_secret_key(&self.p2p_secret_key)?;
 
-                let network = self
-                    .network
-                    .network_config(&config, self.chain.clone(), p2p_secret_key)
-                    .build(Arc::new(ShareableDatabase::new(db.clone(), self.chain.clone())))
-                    .start_network()
-                    .await?;
-                let fetch_client = Arc::new(network.fetch_client().await?);
+                // let network = self
+                //     .network
+                //     .network_config(&config, self.chain.clone(), p2p_secret_key)
+                //     .build(Arc::new(ShareableDatabase::new(db.clone(), self.chain.clone())))
+                //     .start_network()
+                //     .await?;
+                // let fetch_client = Arc::new(network.fetch_client().await?);
 
-                let mut stage = BodyStage {
-                    downloader: BodiesDownloaderBuilder::default()
-                        .with_stream_batch_size(num_blocks as usize)
-                        .with_request_limit(config.stages.bodies.downloader_request_limit)
-                        .with_max_buffered_responses(
-                            config.stages.bodies.downloader_max_buffered_responses,
-                        )
-                        .with_concurrent_requests_range(
-                            config.stages.bodies.downloader_min_concurrent_requests..=
-                                config.stages.bodies.downloader_max_concurrent_requests,
-                        )
-                        .build(fetch_client.clone(), consensus.clone(), db.clone()),
-                    consensus: consensus.clone(),
-                };
+                // let mut stage = BodyStage {
+                //     downloader: BodiesDownloaderBuilder::default()
+                //         .with_stream_batch_size(num_blocks as usize)
+                //         .with_request_limit(config.stages.bodies.downloader_request_limit)
+                //         .with_max_buffered_responses(
+                //             config.stages.bodies.downloader_max_buffered_responses,
+                //         )
+                //         .with_concurrent_requests_range(
+                //             config.stages.bodies.downloader_min_concurrent_requests..=
+                //                 config.stages.bodies.downloader_max_concurrent_requests,
+                //         )
+                //         .build(fetch_client.clone(), consensus.clone(), db.clone()),
+                //     consensus: consensus.clone(),
+                // };
 
-                if !self.skip_unwind {
-                    stage.unwind(&mut tx, unwind).await?;
-                }
-                stage.execute(&mut tx, input).await?;
+                // if !self.skip_unwind {
+                //     stage.unwind(&mut tx, unwind).await?;
+                // }
+                // stage.execute(&mut tx, input).await?;
             }
             StageEnum::Senders => {
                 let mut stage = SenderRecoveryStage { commit_threshold: num_blocks };

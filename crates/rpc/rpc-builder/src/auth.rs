@@ -11,8 +11,13 @@ use jsonrpsee::{
 use reth_network_api::{NetworkInfo, Peers};
 use reth_provider::{BlockProvider, EvmEnvProvider, HeaderProvider, StateProviderFactory};
 use reth_rpc::{
-    eth::cache::EthStateCache, AuthLayer, Claims, EngineEthApi, EthApi, EthFilter,
-    JwtAuthValidator, JwtSecret,
+    eth::cache::EthStateCache,
+    AuthLayer,
+    Claims,
+    EthApi,
+    EthFilter, // removed EngineEthApi
+    JwtAuthValidator,
+    JwtSecret,
 };
 use reth_rpc_api::{servers::*, EngineApiServer};
 use reth_tasks::TaskSpawner;
@@ -24,12 +29,13 @@ use std::{
 
 /// Configure and launch a _standalone_ auth server with `engine` and a _new_ `eth` namespace.
 #[allow(clippy::too_many_arguments)]
-pub async fn launch<Client, Pool, Network, Tasks, EngineApi>(
+pub async fn launch<Client, Pool, Network, Tasks>(
+    // removed EngineApi
     client: Client,
     pool: Pool,
     network: Network,
     executor: Tasks,
-    engine_api: EngineApi,
+    // engine_api: EngineApi,
     socket_addr: SocketAddr,
     secret: JwtSecret,
 ) -> Result<AuthServerHandle, RpcError>
@@ -44,20 +50,21 @@ where
     Pool: TransactionPool + Clone + 'static,
     Network: NetworkInfo + Peers + Clone + 'static,
     Tasks: TaskSpawner + Clone + 'static,
-    EngineApi: EngineApiServer,
+    // EngineApi: EngineApiServer,
 {
     // spawn a new cache task
     let eth_cache = EthStateCache::spawn_with(client.clone(), Default::default(), executor);
     let eth_api = EthApi::new(client.clone(), pool.clone(), network, eth_cache.clone());
     let eth_filter = EthFilter::new(client, pool, eth_cache.clone());
-    launch_with_eth_api(eth_api, eth_filter, engine_api, socket_addr, secret).await
+    launch_with_eth_api(eth_api, eth_filter, socket_addr, secret).await
 }
 
 /// Configure and launch a _standalone_ auth server with existing EthApi implementation.
-pub async fn launch_with_eth_api<Client, Pool, Network, EngineApi>(
+pub async fn launch_with_eth_api<Client, Pool, Network>(
+    // removed EngineApi
     eth_api: EthApi<Client, Pool, Network>,
     eth_filter: EthFilter<Client, Pool>,
-    engine_api: EngineApi,
+    // engine_api: EngineApi,
     socket_addr: SocketAddr,
     secret: JwtSecret,
 ) -> Result<AuthServerHandle, RpcError>
@@ -71,13 +78,14 @@ where
         + 'static,
     Pool: TransactionPool + Clone + 'static,
     Network: NetworkInfo + Peers + Clone + 'static,
-    EngineApi: EngineApiServer,
+    // EngineApi: EngineApiServer,
 {
     // Configure the module and start the server.
     let mut module = RpcModule::new(());
-    module.merge(engine_api.into_rpc()).expect("No conflicting methods");
-    let engine_eth = EngineEthApi::new(eth_api, eth_filter);
-    module.merge(engine_eth.into_rpc()).expect("No conflicting methods");
+    // module.merge(engine_api.into_rpc()).expect("No conflicting methods");
+    // let engine_eth = EthApi::new(eth_api, eth_filter);
+    module.merge(eth_api.into_rpc()).expect("No conflicting methods");
+    module.merge(eth_filter.into_rpc()).expect("No conflicting methods");
 
     // Create auth middleware.
     let middleware =

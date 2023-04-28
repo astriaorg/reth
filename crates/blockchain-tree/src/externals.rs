@@ -15,25 +15,29 @@ use std::sync::Arc;
 /// - The executor factory to execute blocks with
 /// - The chain spec
 #[derive(Debug)]
-pub struct TreeExternals<DB, C, EF> {
+// pub struct TreeExternals<DB, C, EF> {
+pub struct TreeExternals<DB, EF> {
     /// The database, used to commit the canonical chain, or unwind it.
     pub db: DB,
     /// The consensus engine.
-    pub consensus: C,
+    // pub consensus: C,
     /// The executor factory to execute blocks with.
     pub executor_factory: EF,
     /// The chain spec.
     pub chain_spec: Arc<ChainSpec>,
 }
 
-impl<DB, C, EF> TreeExternals<DB, C, EF> {
+// impl<DB, C, EF> TreeExternals<DB, C, EF> {
+impl<DB, EF> TreeExternals<DB, EF> {
     /// Create new tree externals.
-    pub fn new(db: DB, consensus: C, executor_factory: EF, chain_spec: Arc<ChainSpec>) -> Self {
-        Self { db, consensus, executor_factory, chain_spec }
+    pub fn new(db: DB, executor_factory: EF, chain_spec: Arc<ChainSpec>) -> Self {
+        // Self { db, consensus, executor_factory, chain_spec }
+        Self { db, executor_factory, chain_spec }
     }
 }
 
-impl<DB: Database, C, EF> TreeExternals<DB, C, EF> {
+// impl<DB: Database, C, EF> TreeExternals<DB, C, EF> {
+impl<DB: Database, EF> TreeExternals<DB, EF> {
     /// Return shareable database helper structure.
     pub fn shareable_db(&self) -> ShareableDatabase<&DB> {
         ShareableDatabase::new(&self.db, self.chain_spec.clone())

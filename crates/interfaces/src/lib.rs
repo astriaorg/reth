@@ -8,7 +8,9 @@
 //! Reth interface bindings
 
 /// Consensus traits.
-pub mod consensus;
+pub mod consensus; // TODO: remove this. still needed for ForkChoiceState atm
+/// Static validity traits.
+pub mod static_validity;
 
 /// Database error
 pub mod db;

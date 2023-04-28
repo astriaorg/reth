@@ -1,7 +1,10 @@
 //! Implementation of [`BlockchainTree`]
 use reth_db::{cursor::DbCursorRO, database::Database, tables, transaction::DbTx};
 use reth_interfaces::{
-    blockchain_tree::BlockStatus, consensus::Consensus, executor::Error as ExecError, Error,
+    // blockchain_tree::BlockStatus, consensus::Consensus, executor::Error as ExecError, Error,
+    blockchain_tree::BlockStatus,
+    executor::Error as ExecError,
+    Error,
 };
 use reth_primitives::{
     BlockHash, BlockNumber, ForkBlock, Hardfork, SealedBlock, SealedBlockWithSenders, U256,
@@ -63,7 +66,8 @@ use crate::{
 ///   and commit it to db. If we don't have the block, pipeline syncing should start to fetch the
 ///   blocks from p2p. Do reorg in tables if canonical chain if needed.
 #[derive(Debug)]
-pub struct BlockchainTree<DB: Database, C: Consensus, EF: ExecutorFactory> {
+// pub struct BlockchainTree<DB: Database, C: Consensus, EF: ExecutorFactory> {
+pub struct BlockchainTree<DB: Database, EF: ExecutorFactory> {
     /// The tracked chains and their current data.
     chains: HashMap<BlockChainId, AppendableChain>,
     /// Static blockchain ID generator
@@ -71,7 +75,8 @@ pub struct BlockchainTree<DB: Database, C: Consensus, EF: ExecutorFactory> {
     /// Indices to block and their connection to the canonical chain.
     block_indices: BlockIndices,
     /// External components (the database, consensus engine etc.)
-    externals: TreeExternals<DB, C, EF>,
+    // externals: TreeExternals<DB, C, EF>,
+    externals: TreeExternals<DB, EF>,
     /// Tree configuration
     config: BlockchainTreeConfig,
     /// Broadcast channel for canon state changes notifications.
@@ -87,10 +92,12 @@ pub struct BlockHashes<'a> {
     pub indices: &'a BlockIndices,
 }
 
-impl<DB: Database, C: Consensus, EF: ExecutorFactory> BlockchainTree<DB, C, EF> {
+// impl<DB: Database, C: Consensus, EF: ExecutorFactory> BlockchainTree<DB, C, EF> {
+impl<DB: Database, EF: ExecutorFactory> BlockchainTree<DB, EF> {
     /// Create a new blockchain tree.
     pub fn new(
-        externals: TreeExternals<DB, C, EF>,
+        // externals: TreeExternals<DB, C, EF>,
+        externals: TreeExternals<DB, EF>,
         canon_state_notification_sender: CanonStateNotificationSender,
         config: BlockchainTreeConfig,
     ) -> Result<Self, Error> {
@@ -711,7 +718,8 @@ mod tests {
         let executor_factory = TestExecutorFactory::new(chain_spec.clone());
         executor_factory.extend(exec_res);
 
-        TreeExternals::new(db, consensus, executor_factory, chain_spec)
+        // TreeExternals::new(db, consensus, executor_factory, chain_spec)
+        TreeExternals::new(db, executor_factory, chain_spec)
     }
 
     fn setup_genesis<DB: Database>(db: DB, mut genesis: SealedBlock) {

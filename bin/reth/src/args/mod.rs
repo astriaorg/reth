@@ -1,6 +1,6 @@
 //! Parameters for configuring the rpc more granularity via CLI
 
-/// NetworkArg struct for configuring the network
+// /// NetworkArg struct for configuring the network
 mod network_args;
 pub use network_args::{DiscoveryArgs, NetworkArgs};
 

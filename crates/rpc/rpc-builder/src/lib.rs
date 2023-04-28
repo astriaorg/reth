@@ -108,10 +108,10 @@ use reth_ipc::server::IpcServer;
 use reth_network_api::{NetworkInfo, Peers};
 use reth_provider::{BlockProvider, CanonStateSubscriptions, EvmEnvProvider, StateProviderFactory};
 use reth_rpc::{
-    eth::cache::EthStateCache, AdminApi, DebugApi, EngineEthApi, EthApi, EthFilter, EthPubSub,
+    eth::cache::EthStateCache, AdminApi, DebugApi, EthApi, EthFilter, EthPubSub,
     EthSubscriptionIdProvider, NetApi, TraceApi, TracingCallGuard, Web3Api,
 };
-use reth_rpc_api::{servers::*, EngineApiServer};
+use reth_rpc_api::servers::*;
 use reth_tasks::TaskSpawner;
 use reth_transaction_pool::TransactionPool;
 use serde::{Deserialize, Serialize, Serializer};
@@ -142,7 +142,7 @@ mod eth;
 pub mod constants;
 
 // re-export for convenience
-use crate::auth::AuthRpcModule;
+// use crate::auth::AuthRpcModule;
 pub use crate::eth::{EthConfig, EthHandlers};
 pub use jsonrpsee::server::ServerBuilder;
 pub use reth_ipc::server::{Builder as IpcServerBuilder, Endpoint};
@@ -261,14 +261,11 @@ where
     /// used to start the transport server(s).
     ///
     /// And also configures the auth server, which also exposes the `eth_` namespace.
-    pub fn build_with_auth_server<EngineApi>(
+    pub fn build_with_auth_server(
         self,
         module_config: TransportRpcModuleConfig,
-        engine: EngineApi,
-    ) -> (TransportRpcModules<()>, AuthRpcModule)
-    where
-        EngineApi: EngineApiServer,
-    {
+        // engine: EngineApi,
+    ) -> TransportRpcModules<()> {
         let mut modules = TransportRpcModules::default();
 
         let Self { client, pool, network, executor, events } = self;
@@ -288,9 +285,9 @@ where
         modules.ws = registry.maybe_module(ws.as_ref());
         modules.ipc = registry.maybe_module(ipc.as_ref());
 
-        let auth_module = registry.create_auth_module(engine);
+        // let auth_module = registry.create_auth_module(engine);
 
-        (modules, auth_module)
+        modules
     }
 
     /// Configures all [RpcModule]s specific to the given [TransportRpcModuleConfig] which can be
@@ -629,26 +626,26 @@ where
         self
     }
 
-    /// Configures the auth module that includes the
-    ///   * `engine_` namespace
-    ///   * `api_` namespace
-    ///
-    /// Note: This does _not_ register the `engine_` in this registry.
-    pub fn create_auth_module<EngineApi>(&mut self, engine_api: EngineApi) -> AuthRpcModule
-    where
-        EngineApi: EngineApiServer,
-    {
-        let eth_handlers = self.eth_handlers();
-        let mut module = RpcModule::new(());
+    // /// Configures the auth module that includes the
+    // ///   * `engine_` namespace
+    // ///   * `api_` namespace
+    // ///
+    // /// Note: This does _not_ register the `engine_` in this registry.
+    // pub fn create_auth_module<EngineApi>(&mut self, engine_api: EngineApi) -> AuthRpcModule
+    // where
+    //     EngineApi: EngineApiServer,
+    // {
+    //     let eth_handlers = self.eth_handlers();
+    //     let mut module = RpcModule::new(());
 
-        module.merge(engine_api.into_rpc()).expect("No conflicting methods");
+    //     module.merge(engine_api.into_rpc()).expect("No conflicting methods");
 
-        // also merge a subset of `eth_` handlers
-        let engine_eth = EngineEthApi::new(eth_handlers.api.clone(), eth_handlers.filter);
-        module.merge(engine_eth.into_rpc()).expect("No conflicting methods");
+    //     // also merge a subset of `eth_` handlers
+    //     // let engine_eth = EngineEthApi::new(eth_handlers.api.clone(), eth_handlers.filter);
+    //     // module.merge(engine_eth.into_rpc()).expect("No conflicting methods");
 
-        AuthRpcModule { inner: module }
-    }
+    //     AuthRpcModule { inner: module }
+    // }
 
     /// Register Net Namespace
     pub fn register_net(&mut self) -> &mut Self {
@@ -770,10 +767,10 @@ where
         f(self.eth.as_ref().expect("exists; qed"))
     }
 
-    /// Returns the configured [EthHandlers] or creates it if it does not exist yet
-    fn eth_handlers(&mut self) -> EthHandlers<Client, Pool, Network, Events> {
-        self.with_eth(|handlers| handlers.clone())
-    }
+    // /// Returns the configured [EthHandlers] or creates it if it does not exist yet
+    // fn eth_handlers(&mut self) -> EthHandlers<Client, Pool, Network, Events> {
+    //     self.with_eth(|handlers| handlers.clone())
+    // }
 
     /// Returns the configured [EthApi] or creates it if it does not exist yet
     fn eth_api(&mut self) -> EthApi<Client, Pool, Network> {

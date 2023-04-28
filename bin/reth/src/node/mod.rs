@@ -6,15 +6,15 @@ use crate::{
     dirs::{ConfigPath, DbPath, SecretKeyPath},
     prometheus_exporter,
     runner::CliContext,
-    utils::get_single_header,
+    // utils::get_single_header,
 };
 use clap::{crate_version, Parser};
 use eyre::Context;
 use fdlimit::raise_fd_limit;
-use futures::{pin_mut, stream::select as stream_select, StreamExt};
-use reth_auto_seal_consensus::{AutoSealBuilder, AutoSealConsensus};
+use futures::{stream::select as stream_select, StreamExt}; // removed pin_mut
+                                                           // use reth_auto_seal_consensus::{AutoSealBuilder, AutoSealConsensus};
 use reth_basic_payload_builder::{BasicPayloadJobGenerator, BasicPayloadJobGeneratorConfig};
-use reth_beacon_consensus::{BeaconConsensus, BeaconConsensusEngine, BeaconEngineMessage};
+// use reth_beacon_consensus::{BeaconConsensus, BeaconConsensusEngine, BeaconEngineMessage};
 use reth_blockchain_tree::{
     config::BlockchainTreeConfig, externals::TreeExternals, BlockchainTree, ShareableBlockchainTree,
 };
@@ -25,53 +25,52 @@ use reth_db::{
     transaction::DbTx,
 };
 use reth_discv4::DEFAULT_DISCOVERY_PORT;
-use reth_downloaders::{
-    bodies::bodies::BodiesDownloaderBuilder,
-    headers::reverse_headers::ReverseHeadersDownloaderBuilder,
-};
+// use reth_downloaders::{
+//     bodies::bodies::BodiesDownloaderBuilder,
+//     headers::reverse_headers::ReverseHeadersDownloaderBuilder,
+// };
 use reth_interfaces::{
-    consensus::{Consensus, ForkchoiceState},
-    p2p::{
-        bodies::{client::BodiesClient, downloader::BodyDownloader},
-        headers::{client::StatusUpdater, downloader::HeaderDownloader},
-    },
+    // consensus::{Consensus, ForkchoiceState},
+    p2p::headers::client::StatusUpdater,
     sync::SyncStateUpdater,
 };
 use reth_network::{error::NetworkError, NetworkConfig, NetworkHandle, NetworkManager};
 use reth_network_api::NetworkInfo;
-use reth_primitives::{BlockHashOrNumber, Chain, ChainSpec, Head, Header, SealedHeader, H256};
+use reth_primitives::{Chain, ChainSpec, Head, H256}; /* removed SealedHeader, Header,
+                                                      * BlockHashOrNumber */
 use reth_provider::{BlockProvider, HeaderProvider, ShareableDatabase};
 use reth_revm::Factory;
-use reth_revm_inspectors::stack::Hook;
-use reth_rpc_engine_api::EngineApi;
+// use reth_revm_inspectors::stack::Hook;
+// use reth_rpc_engine_api::EngineApi;
 use reth_staged_sync::{
     utils::{
         chainspec::genesis_value_parser,
-        init::{init_db, init_genesis},
+        init::init_db, // removed init_genesis TODO-astria: this should be added back in somehow
         parse_socket_address,
     },
     Config,
 };
 use reth_stages::{
     prelude::*,
-    stages::{ExecutionStage, HeaderSyncMode, SenderRecoveryStage, TotalDifficultyStage, FINISH},
+    stages::FINISH, /* removed HeaderSyncMode, ExecutionStage, SenderRecoveryStage,
+                    * TotalDifficultyStage */
 };
 use reth_tasks::TaskExecutor;
 use reth_transaction_pool::{EthTransactionValidator, TransactionPool};
 use secp256k1::SecretKey;
 use std::{
     net::{Ipv4Addr, SocketAddr, SocketAddrV4},
-    path::PathBuf,
+    // path::PathBuf,
     sync::Arc,
 };
-use tokio::sync::{mpsc::unbounded_channel, oneshot, watch};
+use tokio::sync::watch; // removed mpsc::unbounded_channel, oneshot
 use tracing::*;
 
 use crate::dirs::MaybePlatformPath;
-use reth_interfaces::p2p::headers::client::HeadersClient;
+// use reth_interfaces::p2p::headers::client::HeadersClient;
 use reth_payload_builder::PayloadBuilderService;
 use reth_provider::providers::BlockchainProvider;
-use reth_stages::stages::{MERKLE_EXECUTION, MERKLE_UNWIND};
+// use reth_stages::stages::{MERKLE_EXECUTION, MERKLE_UNWIND};
 
 pub mod events;
 
@@ -156,27 +155,28 @@ impl Command {
 
         self.start_metrics_endpoint(Arc::clone(&db)).await?;
 
-        debug!(target: "reth::cli", chain=%self.chain.chain, genesis=?self.chain.genesis_hash(), "Initializing genesis");
-
-        let genesis_hash = init_genesis(db.clone(), self.chain.clone())?;
-
-        // comment this out
-        let consensus: Arc<dyn Consensus> = if self.auto_mine {
-            debug!(target: "reth::cli", "Using auto seal");
-            Arc::new(AutoSealConsensus::new(Arc::clone(&self.chain)))
-        } else {
-            debug!(target: "reth::cli", "Using beacon consensus");
-            Arc::new(BeaconConsensus::new(Arc::clone(&self.chain)))
-        };
-        debug!(target: "reth::cli", "Consensus not built");
+        // TODO-astria: need to add ForkchoiceState back in (see ForkchoiceState in code below)
+        // debug!(target: "reth::cli", chain=%self.chain.chain, genesis=?self.chain.genesis_hash(),
+        // "Initializing genesis"); let genesis_hash = init_genesis(db.clone(),
+        // self.chain.clone())?;
 
         // comment this out
-        self.init_trusted_nodes(&mut config);
+        // let consensus: Arc<dyn Consensus> = if self.auto_mine {
+        //     debug!(target: "reth::cli", "Using auto seal");
+        //     Arc::new(AutoSealConsensus::new(Arc::clone(&self.chain)))
+        // } else {
+        //     debug!(target: "reth::cli", "Using beacon consensus");
+        //     Arc::new(BeaconConsensus::new(Arc::clone(&self.chain)))
+        // };
+        debug!(target: "reth::cli", "Not using Consensus");
+
+        // comment this out
+        // self.init_trusted_nodes(&mut config);
 
         // configure blockchain tree
         let tree_externals = TreeExternals::new(
             db.clone(),
-            Arc::clone(&consensus),
+            // Arc::clone(&consensus),
             Factory::new(self.chain.clone()),
             Arc::clone(&self.chain),
         );
@@ -213,84 +213,89 @@ impl Command {
         let network = self
             .start_network(network_config, &ctx.task_executor, transaction_pool.clone())
             .await?;
-        info!(target: "reth::cli", peer_id = %network.peer_id(), local_addr = %network.local_addr(), "Connected to P2P network");
-        debug!(target: "reth::cli", peer_id = ?network.peer_id(), "Full peer ID");
+        info!(target: "reth::cli", peer_id = %network.peer_id(), local_addr =
+        %network.local_addr(), "Connected to P2P network");
+        debug!(target: "reth::cli",
+        peer_id = ?network.peer_id(), "Full peer ID");
 
-        let (consensus_engine_tx, consensus_engine_rx) = unbounded_channel();
+        // let (consensus_engine_tx, consensus_engine_rx) = unbounded_channel();
 
         // Forward genesis as forkchoice state to the consensus engine.
         // This will allow the downloader to start
-        if self.debug.continuous {
-            info!(target: "reth::cli", "Continuous sync mode enabled");
-            let (tip_tx, _tip_rx) = oneshot::channel();
-            let state = ForkchoiceState {
-                head_block_hash: genesis_hash,
-                finalized_block_hash: genesis_hash,
-                safe_block_hash: genesis_hash,
-            };
-            consensus_engine_tx.send(BeaconEngineMessage::ForkchoiceUpdated {
-                state,
-                payload_attrs: None,
-                tx: tip_tx,
-            })?;
-        }
+
+        // TODO-astria: need to add ForkchoiceState back in
+
+        // if self.debug.continuous {
+        //     info!(target: "reth::cli", "Continuous sync mode enabled");
+        //     let (tip_tx, _tip_rx) = oneshot::channel();
+        //     let state = ForkchoiceState {
+        //         head_block_hash: genesis_hash,
+        //         finalized_block_hash: genesis_hash,
+        //         safe_block_hash: genesis_hash,
+        //     };
+        // consensus_engine_tx.send(BeaconEngineMessage::ForkchoiceUpdated {
+        //     state,
+        //     payload_attrs: None,
+        //     tx: tip_tx,
+        // })?;
+        // }
 
         // Forward the `debug.tip` as forkchoice state to the consensus engine.
         // This will initiate the sync up to the provided tip.
-        let _tip_rx = match self.debug.tip {
-            Some(tip) => {
-                let (tip_tx, tip_rx) = oneshot::channel();
-                let state = ForkchoiceState {
-                    head_block_hash: tip,
-                    finalized_block_hash: tip,
-                    safe_block_hash: tip,
-                };
-                consensus_engine_tx.send(BeaconEngineMessage::ForkchoiceUpdated {
-                    state,
-                    payload_attrs: None,
-                    tx: tip_tx,
-                })?;
-                debug!(target: "reth::cli", %tip, "Tip manually set");
-                Some(tip_rx)
-            }
-            None => None,
-        };
+        // let _tip_rx = match self.debug.tip {
+        //     Some(tip) => {
+        //         let (tip_tx, tip_rx) = oneshot::channel();
+        //         let state = ForkchoiceState {
+        //             head_block_hash: tip,
+        //             finalized_block_hash: tip,
+        //             safe_block_hash: tip,
+        //         };
+        //         consensus_engine_tx.send(BeaconEngineMessage::ForkchoiceUpdated {
+        //             state,
+        //             payload_attrs: None,
+        //             tx: tip_tx,
+        //         })?;
+        //         debug!(target: "reth::cli", %tip, "Tip manually set");
+        //         Some(tip_rx)
+        //     }
+        //     None => None,
+        // };
 
         // Configure the pipeline
         let mut pipeline = if self.auto_mine {
-            let (_, client, mut task) = AutoSealBuilder::new(
-                Arc::clone(&self.chain),
-                blockchain_db.clone(),
-                transaction_pool.clone(),
-                consensus_engine_tx.clone(),
-                canon_state_notification_sender,
-            )
-            .build();
+            // let (_, client, mut task) = AutoSealBuilder::new(
+            //     Arc::clone(&self.chain),
+            //     blockchain_db.clone(),
+            //     transaction_pool.clone(),
+            //     consensus_engine_tx.clone(),
+            //     canon_state_notification_sender,
+            // )
+            // .build();
 
-            let mut pipeline = self
-                .build_networked_pipeline(
-                    &mut config,
-                    network.clone(),
-                    client,
-                    Arc::clone(&consensus),
-                    db.clone(),
-                    &ctx.task_executor,
-                )
-                .await?;
-
-            let pipeline_events = pipeline.events();
-            task.set_pipeline_events(pipeline_events);
-            debug!(target: "reth::cli", "Spawning auto mine task");
-            ctx.task_executor.spawn(Box::pin(task));
-
-            pipeline
-        } else {
-            let client = network.fetch_client().await?;
+            // let pipeline =
             self.build_networked_pipeline(
                 &mut config,
                 network.clone(),
-                client,
-                Arc::clone(&consensus),
+                // client,
+                // Arc::clone(&consensus),
+                db.clone(),
+                &ctx.task_executor,
+            )
+            .await?
+
+            // let pipeline_events = pipeline.events();
+            // task.set_pipeline_events(pipeline_events);
+            // debug!(target: "reth::cli", "Spawning auto mine task");
+            // ctx.task_executor.spawn(Box::pin(task));
+
+            // pipeline
+        } else {
+            // let client = network.fetch_client().await?;
+            self.build_networked_pipeline(
+                &mut config,
+                network.clone(),
+                // client,
+                // Arc::clone(&consensus),
                 db.clone(),
                 &ctx.task_executor,
             )
@@ -313,34 +318,35 @@ impl Command {
             BasicPayloadJobGeneratorConfig::default(),
             Arc::clone(&self.chain),
         );
-        let (payload_service, payload_builder) = PayloadBuilderService::new(payload_generator);
+        let (payload_service, _payload_builder) = PayloadBuilderService::new(payload_generator);
 
         debug!(target: "reth::cli", "Spawning payload builder service");
         ctx.task_executor.spawn_critical("payload builder service", payload_service);
 
-        let (beacon_consensus_engine, beacon_engine_handle) = BeaconConsensusEngine::with_channel(
-            Arc::clone(&db),
-            ctx.task_executor.clone(),
-            pipeline,
-            blockchain_tree.clone(),
-            self.debug.max_block,
-            self.debug.continuous,
-            payload_builder.clone(),
-            consensus_engine_tx,
-            consensus_engine_rx,
-        );
-        info!(target: "reth::cli", "Consensus engine initialized");
+        // let (beacon_consensus_engine, beacon_engine_handle) =
+        // BeaconConsensusEngine::with_channel(     Arc::clone(&db),
+        //     ctx.task_executor.clone(),
+        //     pipeline,
+        //     blockchain_tree.clone(),
+        //     self.debug.max_block,
+        //     self.debug.continuous,
+        //     payload_builder.clone(),
+        //     consensus_engine_tx,
+        //     consensus_engine_rx,
+        // );
+        // info!(target: "reth::cli", "Consensus engine initialized");
+        info!(target: "reth::cli", "Not initializing the consensus engine");
 
-        let engine_api = EngineApi::new(
-            blockchain_db.clone(),
-            self.chain.clone(),
-            beacon_engine_handle,
-            payload_builder.into(),
-        );
-        info!(target: "reth::cli", "Engine API handler initialized");
+        // let engine_api = EngineApi::new(
+        //     blockchain_db.clone(),
+        //     self.chain.clone(),
+        //     beacon_engine_handle,
+        //     payload_builder.into(),
+        // );
+        // info!(target: "reth::cli", "Engine API handler initialized");
 
         // Start RPC servers
-        let (_rpc_server, _auth_server) = self
+        let _rpc_server = self
             .rpc
             .start_servers(
                 blockchain_db.clone(),
@@ -348,19 +354,19 @@ impl Command {
                 network.clone(),
                 ctx.task_executor.clone(),
                 blockchain_tree,
-                engine_api,
+                // engine_api,
             )
             .await?;
 
         // Run consensus engine to completion
-        let (tx, rx) = oneshot::channel();
-        info!(target: "reth::cli", "Starting consensus engine");
-        ctx.task_executor.spawn_critical("consensus engine", async move {
-            let res = beacon_consensus_engine.await;
-            let _ = tx.send(res);
-        });
+        // let (tx, rx) = oneshot::channel();
+        // info!(target: "reth::cli", "Starting consensus engine");
+        // ctx.task_executor.spawn_critical("consensus engine", async move {
+        //     let res = beacon_consensus_engine.await;
+        //     let _ = tx.send(res);
+        // });
 
-        rx.await??;
+        // rx.await??;
 
         info!(target: "reth::cli", "Consensus engine has exited.");
 
@@ -374,42 +380,36 @@ impl Command {
     }
 
     /// Constructs a [Pipeline] that's wired to the network
-    async fn build_networked_pipeline<Client>(
+    async fn build_networked_pipeline(
         &self,
         config: &mut Config,
         network: NetworkHandle,
-        client: Client,
-        consensus: Arc<dyn Consensus>,
-        db: Arc<Env<WriteMap>>,
-        task_executor: &TaskExecutor,
+        // client: Client,
+        // consensus: Arc<dyn Consensus>,
+        _db: Arc<Env<WriteMap>>,
+        _task_executor: &TaskExecutor,
     ) -> eyre::Result<Pipeline<Env<WriteMap>, NetworkHandle>>
-    where
-        Client: HeadersClient + BodiesClient + Clone + 'static,
+// where
+    //     Client: HeadersClient + BodiesClient + Clone + 'static,
     {
-        let max_block = if let Some(block) = self.debug.max_block {
-            Some(block)
-        } else if let Some(tip) = self.debug.tip {
-            Some(self.lookup_or_fetch_tip(db.clone(), &client, tip).await?)
-        } else {
-            None
-        };
+        let max_block = self.debug.max_block;
 
         // building network downloaders using the fetch client
-        let header_downloader = ReverseHeadersDownloaderBuilder::from(config.stages.headers)
-            .build(client.clone(), Arc::clone(&consensus))
-            .into_task_with(task_executor);
+        // let header_downloader = ReverseHeadersDownloaderBuilder::from(config.stages.headers)
+        //     .build(client.clone(), Arc::clone(&consensus))
+        //     .into_task_with(task_executor);
 
-        let body_downloader = BodiesDownloaderBuilder::from(config.stages.bodies)
-            .build(client, Arc::clone(&consensus), db.clone())
-            .into_task_with(task_executor);
+        // let body_downloader = BodiesDownloaderBuilder::from(config.stages.bodies)
+        //     .build(client, Arc::clone(&consensus), db.clone())
+        //     .into_task_with(task_executor);
 
         let pipeline = self
             .build_pipeline(
                 config,
-                header_downloader,
-                body_downloader,
+                // header_downloader,
+                // body_downloader,
                 network.clone(),
-                consensus,
+                // consensus,
                 max_block,
                 self.debug.continuous,
             )
@@ -426,16 +426,16 @@ impl Command {
             .wrap_err_with(|| format!("Could not load config file {}", config_path))
     }
 
-    fn init_trusted_nodes(&self, config: &mut Config) {
-        config.peers.connect_trusted_nodes_only = self.network.trusted_only;
+    // fn init_trusted_nodes(&self, config: &mut Config) {
+    //     config.peers.connect_trusted_nodes_only = self.network.trusted_only;
 
-        if !self.network.trusted_peers.is_empty() {
-            info!(target: "reth::cli", "Adding trusted nodes");
-            self.network.trusted_peers.iter().for_each(|peer| {
-                config.peers.trusted_nodes.insert(*peer);
-            });
-        }
-    }
+    //     if !self.network.trusted_peers.is_empty() {
+    //         info!(target: "reth::cli", "Adding trusted nodes");
+    //         self.network.trusted_peers.iter().for_each(|peer| {
+    //             config.peers.trusted_nodes.insert(*peer);
+    //         });
+    //     }
+    // }
 
     async fn start_metrics_endpoint(&self, db: Arc<Env<WriteMap>>) -> eyre::Result<()> {
         if let Some(listen_addr) = self.metrics {
@@ -460,16 +460,16 @@ impl Command {
         Pool: TransactionPool + Unpin + 'static,
     {
         let client = config.client.clone();
-        let (handle, network, txpool, eth) = NetworkManager::builder(config)
+        let (handle, _network, txpool, eth) = NetworkManager::builder(config)
             .await?
             .transactions(pool)
             .request_handler(client)
             .split_with_handle();
 
-        let known_peers_file = self.network.persistent_peers_file(self.chain.chain);
-        task_executor.spawn_critical_with_signal("p2p network task", |shutdown| {
-            run_network_until_shutdown(shutdown, network, known_peers_file)
-        });
+        // let known_peers_file = self.network.persistent_peers_file(self.chain.chain);
+        // task_executor.spawn_critical_with_signal("p2p network task", |shutdown| {
+        //     run_network_until_shutdown(shutdown, network, known_peers_file)
+        // });
 
         task_executor.spawn_critical("p2p eth request handler", eth);
         task_executor.spawn_critical("p2p txpool request handler", txpool);
@@ -500,61 +500,61 @@ impl Command {
         .map_err(Into::into)
     }
 
-    /// Attempt to look up the block number for the tip hash in the database.
-    /// If it doesn't exist, download the header and return the block number.
-    ///
-    /// NOTE: The download is attempted with infinite retries.
-    async fn lookup_or_fetch_tip<Client>(
-        &self,
-        db: Arc<Env<WriteMap>>,
-        client: Client,
-        tip: H256,
-    ) -> Result<u64, reth_interfaces::Error>
-    where
-        Client: HeadersClient,
-    {
-        Ok(self.fetch_tip(db, client, BlockHashOrNumber::Hash(tip)).await?.number)
-    }
+    // /// Attempt to look up the block number for the tip hash in the database.
+    // /// If it doesn't exist, download the header and return the block number.
+    // ///
+    // /// NOTE: The download is attempted with infinite retries.
+    // async fn lookup_or_fetch_tip<Client>(
+    //     &self,
+    //     db: Arc<Env<WriteMap>>,
+    //     client: Client,
+    //     tip: H256,
+    // ) -> Result<u64, reth_interfaces::Error>
+    // where
+    //     Client: HeadersClient,
+    // {
+    //     Ok(self.fetch_tip(db, client, BlockHashOrNumber::Hash(tip)).await?.number)
+    // }
 
-    /// Attempt to look up the block with the given number and return the header.
-    ///
-    /// NOTE: The download is attempted with infinite retries.
-    async fn fetch_tip<Client>(
-        &self,
-        db: Arc<Env<WriteMap>>,
-        client: Client,
-        tip: BlockHashOrNumber,
-    ) -> Result<SealedHeader, reth_interfaces::Error>
-    where
-        Client: HeadersClient,
-    {
-        let header = db.view(|tx| -> Result<Option<Header>, reth_db::Error> {
-            let number = match tip {
-                BlockHashOrNumber::Hash(hash) => tx.get::<tables::HeaderNumbers>(hash)?,
-                BlockHashOrNumber::Number(number) => Some(number),
-            };
-            Ok(number.map(|number| tx.get::<tables::Headers>(number)).transpose()?.flatten())
-        })??;
+    // /// Attempt to look up the block with the given number and return the header.
+    // ///
+    // /// NOTE: The download is attempted with infinite retries.
+    // async fn fetch_tip<Client>(
+    //     &self,
+    //     db: Arc<Env<WriteMap>>,
+    //     client: Client,
+    //     tip: BlockHashOrNumber,
+    // ) -> Result<SealedHeader, reth_interfaces::Error>
+    // where
+    //     Client: HeadersClient,
+    // {
+    //     let header = db.view(|tx| -> Result<Option<Header>, reth_db::Error> {
+    //         let number = match tip {
+    //             BlockHashOrNumber::Hash(hash) => tx.get::<tables::HeaderNumbers>(hash)?,
+    //             BlockHashOrNumber::Number(number) => Some(number),
+    //         };
+    //         Ok(number.map(|number| tx.get::<tables::Headers>(number)).transpose()?.flatten())
+    //     })??;
 
-        // try to look up the header in the database
-        if let Some(header) = header {
-            info!(target: "reth::cli", ?tip, "Successfully looked up tip block in the database");
-            return Ok(header.seal_slow())
-        }
+    //     // try to look up the header in the database
+    //     if let Some(header) = header {
+    //         info!(target: "reth::cli", ?tip, "Successfully looked up tip block in the database");
+    //         return Ok(header.seal_slow())
+    //     }
 
-        info!(target: "reth::cli", ?tip, "Fetching tip block from the network.");
-        loop {
-            match get_single_header(&client, tip).await {
-                Ok(tip_header) => {
-                    info!(target: "reth::cli", ?tip, "Successfully fetched tip");
-                    return Ok(tip_header)
-                }
-                Err(error) => {
-                    error!(target: "reth::cli", %error, "Failed to fetch the tip. Retrying...");
-                }
-            }
-        }
-    }
+    //     info!(target: "reth::cli", ?tip, "Fetching tip block from the network.");
+    //     loop {
+    //         match get_single_header(&client, tip).await {
+    //             Ok(tip_header) => {
+    //                 info!(target: "reth::cli", ?tip, "Successfully fetched tip");
+    //                 return Ok(tip_header)
+    //             }
+    //             Err(error) => {
+    //                 error!(target: "reth::cli", %error, "Failed to fetch the tip. Retrying...");
+    //             }
+    //         }
+    //     }
+    // }
 
     fn load_network_config(
         &self,
@@ -581,22 +581,22 @@ impl Command {
     }
 
     #[allow(clippy::too_many_arguments)]
-    async fn build_pipeline<H, B, U>(
+    async fn build_pipeline<U>(
         &self,
-        config: &Config,
-        header_downloader: H,
-        body_downloader: B,
+        _config: &Config,
+        // header_downloader: H,
+        // body_downloader: B,
         updater: U,
-        consensus: Arc<dyn Consensus>,
+        // consensus: Arc<dyn Consensus>,
         max_block: Option<u64>,
-        continuous: bool,
+        _continuous: bool,
     ) -> eyre::Result<Pipeline<Env<WriteMap>, U>>
     where
-        H: HeaderDownloader + 'static,
-        B: BodyDownloader + 'static,
+        // H: HeaderDownloader + 'static,
+        // B: BodyDownloader + 'static,
         U: SyncStateUpdater + StatusUpdater + Clone + 'static,
     {
-        let stage_conf = &config.stages;
+        // let stage_conf = &config.stages;
 
         let mut builder = Pipeline::builder();
 
@@ -605,88 +605,88 @@ impl Command {
             builder = builder.with_max_block(max_block)
         }
 
-        let (tip_tx, tip_rx) = watch::channel(H256::zero());
-        use reth_revm_inspectors::stack::InspectorStackConfig;
-        let factory = reth_revm::Factory::new(self.chain.clone());
+        let (tip_tx, _tip_rx) = watch::channel(H256::zero());
+        // use reth_revm_inspectors::stack::InspectorStackConfig;
+        // let factory = reth_revm::Factory::new(self.chain.clone());
 
-        let stack_config = InspectorStackConfig {
-            use_printer_tracer: self.debug.print_inspector,
-            hook: if let Some(hook_block) = self.debug.hook_block {
-                Hook::Block(hook_block)
-            } else if let Some(tx) = self.debug.hook_transaction {
-                Hook::Transaction(tx)
-            } else if self.debug.hook_all {
-                Hook::All
-            } else {
-                Hook::None
-            },
-        };
+        // let stack_config = InspectorStackConfig {
+        //     use_printer_tracer: self.debug.print_inspector,
+        //     hook: if let Some(hook_block) = self.debug.hook_block {
+        //         Hook::Block(hook_block)
+        //     } else if let Some(tx) = self.debug.hook_transaction {
+        //         Hook::Transaction(tx)
+        //     } else if self.debug.hook_all {
+        //         Hook::All
+        //     } else {
+        //         Hook::None
+        //     },
+        // };
 
-        let factory = factory.with_stack_config(stack_config);
+        // let factory = factory.with_stack_config(stack_config);
 
-        let header_mode =
-            if continuous { HeaderSyncMode::Continuous } else { HeaderSyncMode::Tip(tip_rx) };
+        // let header_mode =
+        //     if continuous { HeaderSyncMode::Continuous } else { HeaderSyncMode::Tip(tip_rx) };
         let pipeline = builder
-            .with_sync_state_updater(updater.clone())
+            .with_sync_state_updater(updater)
             .with_tip_sender(tip_tx)
-            .add_stages(
-                DefaultStages::new(
-                    header_mode,
-                    Arc::clone(&consensus),
-                    header_downloader,
-                    body_downloader,
-                    updater,
-                    factory.clone(),
-                )
-                .set(
-                    TotalDifficultyStage::new(consensus)
-                        .with_commit_threshold(stage_conf.total_difficulty.commit_threshold),
-                )
-                .set(SenderRecoveryStage {
-                    commit_threshold: stage_conf.sender_recovery.commit_threshold,
-                })
-                .set(ExecutionStage::new(factory, stage_conf.execution.commit_threshold))
-                .disable_if(MERKLE_UNWIND, || self.auto_mine)
-                .disable_if(MERKLE_EXECUTION, || self.auto_mine),
-            )
+            // .add_stages(
+            //     DefaultStages::new(
+            //         header_mode,
+            //         Arc::clone(&consensus),
+            //         header_downloader,
+            //         body_downloader,
+            //         updater,
+            //         factory.clone(),
+            //     )
+            //     .set(
+            //         TotalDifficultyStage::new(consensus)
+            //             .with_commit_threshold(stage_conf.total_difficulty.commit_threshold),
+            //     )
+            //     .set(SenderRecoveryStage {
+            //         commit_threshold: stage_conf.sender_recovery.commit_threshold,
+            //     })
+            //     .set(ExecutionStage::new(factory, stage_conf.execution.commit_threshold))
+            //     .disable_if(MERKLE_UNWIND, || self.auto_mine)
+            //     .disable_if(MERKLE_EXECUTION, || self.auto_mine),
+            // )
             .build();
 
         Ok(pipeline)
     }
 }
 
-/// Drives the [NetworkManager] future until a [Shutdown](reth_tasks::shutdown::Shutdown) signal is
-/// received. If configured, this writes known peers to `persistent_peers_file` afterwards.
-async fn run_network_until_shutdown<C>(
-    shutdown: reth_tasks::shutdown::Shutdown,
-    network: NetworkManager<C>,
-    persistent_peers_file: Option<PathBuf>,
-) where
-    C: BlockProvider + HeaderProvider + Clone + Unpin + 'static,
-{
-    pin_mut!(network, shutdown);
+// /// Drives the [NetworkManager] future until a [Shutdown](reth_tasks::shutdown::Shutdown) signal
+// is /// received. If configured, this writes known peers to `persistent_peers_file` afterwards.
+// async fn run_network_until_shutdown<C>(
+//     shutdown: reth_tasks::shutdown::Shutdown,
+//     network: NetworkManager<C>,
+//     persistent_peers_file: Option<PathBuf>,
+// ) where
+//     C: BlockProvider + HeaderProvider + Clone + Unpin + 'static,
+// {
+//     pin_mut!(network, shutdown);
 
-    tokio::select! {
-        _ = &mut network => {},
-        _ = shutdown => {},
-    }
+//     tokio::select! {
+//         _ = &mut network => {},
+//         _ = shutdown => {},
+//     }
 
-    if let Some(file_path) = persistent_peers_file {
-        let known_peers = network.all_peers().collect::<Vec<_>>();
-        if let Ok(known_peers) = serde_json::to_string_pretty(&known_peers) {
-            trace!(target : "reth::cli", peers_file =?file_path, num_peers=%known_peers.len(), "Saving current peers");
-            let parent_dir = file_path.parent().map(std::fs::create_dir_all).transpose();
-            match parent_dir.and_then(|_| std::fs::write(&file_path, known_peers)) {
-                Ok(_) => {
-                    info!(target: "reth::cli", peers_file=?file_path, "Wrote network peers to file");
-                }
-                Err(err) => {
-                    warn!(target: "reth::cli", ?err, peers_file=?file_path, "Failed to write network peers to file");
-                }
-            }
-        }
-    }
-}
+//     if let Some(file_path) = persistent_peers_file {
+//         let known_peers = network.all_peers().collect::<Vec<_>>();
+//         if let Ok(known_peers) = serde_json::to_string_pretty(&known_peers) {
+//             trace!(target : "reth::cli", peers_file =?file_path, num_peers=%known_peers.len(),
+// "Saving current peers");             let parent_dir =
+// file_path.parent().map(std::fs::create_dir_all).transpose();             match
+// parent_dir.and_then(|_| std::fs::write(&file_path, known_peers)) {                 Ok(_) => {
+//                     info!(target: "reth::cli", peers_file=?file_path, "Wrote network peers to
+// file");                 }
+//                 Err(err) => {
+//                     warn!(target: "reth::cli", ?err, peers_file=?file_path, "Failed to write
+// network peers to file");                 }
+//             }
+//         }
+//     }
+// }
 
 #[cfg(test)]
 mod tests {
