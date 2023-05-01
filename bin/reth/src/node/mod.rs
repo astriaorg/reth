@@ -13,8 +13,8 @@ use eyre::Context;
 use fdlimit::raise_fd_limit;
 use futures::{stream::select as stream_select, StreamExt}; // removed pin_mut
                                                            // use reth_auto_seal_consensus::{AutoSealBuilder, AutoSealConsensus};
-use reth_basic_payload_builder::{BasicPayloadJobGenerator, BasicPayloadJobGeneratorConfig};
-// use reth_beacon_consensus::{BeaconConsensus, BeaconConsensusEngine, BeaconEngineMessage};
+                                                           // use reth_basic_payload_builder::{BasicPayloadJobGenerator, BasicPayloadJobGeneratorConfig};
+                                                           // use reth_beacon_consensus::{BeaconConsensus, BeaconConsensusEngine, BeaconEngineMessage};
 use reth_blockchain_tree::{
     config::BlockchainTreeConfig, externals::TreeExternals, BlockchainTree, ShareableBlockchainTree,
 };
@@ -30,6 +30,7 @@ use reth_discv4::DEFAULT_DISCOVERY_PORT;
 //     headers::reverse_headers::ReverseHeadersDownloaderBuilder,
 // };
 use reth_interfaces::{
+    blockchain_tree::BlockchainTreeEngine,
     // consensus::{Consensus, ForkchoiceState},
     p2p::headers::client::StatusUpdater,
     sync::SyncStateUpdater,
@@ -38,7 +39,9 @@ use reth_network::{error::NetworkError, NetworkConfig, NetworkHandle, NetworkMan
 use reth_network_api::NetworkInfo;
 use reth_primitives::{Chain, ChainSpec, Head, H256}; /* removed SealedHeader, Header,
                                                       * BlockHashOrNumber */
-use reth_provider::{BlockProvider, HeaderProvider, ShareableDatabase};
+use reth_provider::{
+    test_utils::blocks::BlockChainTestData, BlockProvider, HeaderProvider, ShareableDatabase,
+};
 use reth_revm::Factory;
 // use reth_revm_inspectors::stack::Hook;
 // use reth_rpc_engine_api::EngineApi;
@@ -68,7 +71,7 @@ use tracing::*;
 
 use crate::dirs::MaybePlatformPath;
 // use reth_interfaces::p2p::headers::client::HeadersClient;
-use reth_payload_builder::PayloadBuilderService;
+// use reth_payload_builder::PayloadBuilderService;
 use reth_provider::providers::BlockchainProvider;
 // use reth_stages::stages::{MERKLE_EXECUTION, MERKLE_UNWIND};
 
@@ -143,6 +146,7 @@ impl Command {
         // Does not do anything on windows.
         raise_fd_limit();
 
+        // load chain configuration data from file
         let mut config: Config = self.load_config_with_chain(self.chain.chain)?;
         info!(target: "reth::cli", path = %self.config.unwrap_or_chain_default(self.chain.chain), "Configuration loaded");
 
@@ -150,9 +154,11 @@ impl Command {
         let db_path = self.db.unwrap_or_chain_default(self.chain.chain);
 
         info!(target: "reth::cli", path = %db_path, "Opening database");
+        // initialize database and build a reference to pass it around
         let db = Arc::new(init_db(&db_path)?);
         info!(target: "reth::cli", "Database opened");
 
+        // start the metrics, TODO-astria: look into this a little more
         self.start_metrics_endpoint(Arc::clone(&db)).await?;
 
         // TODO-astria: need to add ForkchoiceState back in (see ForkchoiceState in code below)
@@ -215,8 +221,21 @@ impl Command {
             .await?;
         info!(target: "reth::cli", peer_id = %network.peer_id(), local_addr =
         %network.local_addr(), "Connected to P2P network");
-        debug!(target: "reth::cli",
-        peer_id = ?network.peer_id(), "Full peer ID");
+        debug!(target: "reth::cli", peer_id = ?network.peer_id(), "Full peer ID");
+
+        let data = BlockChainTestData::default_with_numbers(999937, 999938);
+        // TODO-astria: figure out where the block numbers are coming from
+        let (block1, _exec1) = data.blocks[0].clone();
+        let (block2, _exec2) = data.blocks[1].clone();
+
+        blockchain_tree.insert_block(block1.block)?;
+        blockchain_tree.finalize_block(999937);
+
+        blockchain_tree.insert_block(block2.block)?;
+        blockchain_tree.finalize_block(999938);
+        debug!(target: "reth::cli", "Test block inserted and finalized");
+
+        // blockchain_tree.
 
         // let (consensus_engine_tx, consensus_engine_rx) = unbounded_channel();
 
@@ -262,18 +281,47 @@ impl Command {
         // };
 
         // Configure the pipeline
-        let mut pipeline = if self.auto_mine {
-            // let (_, client, mut task) = AutoSealBuilder::new(
-            //     Arc::clone(&self.chain),
-            //     blockchain_db.clone(),
-            //     transaction_pool.clone(),
-            //     consensus_engine_tx.clone(),
-            //     canon_state_notification_sender,
-            // )
-            // .build();
+        // let mut pipeline = if self.auto_mine {
+        //     // let (_, client, mut task) = AutoSealBuilder::new(
+        //     //     Arc::clone(&self.chain),
+        //     //     blockchain_db.clone(),
+        //     //     transaction_pool.clone(),
+        //     //     consensus_engine_tx.clone(),
+        //     //     canon_state_notification_sender,
+        //     // )
+        //     // .build();
 
-            // let pipeline =
-            self.build_networked_pipeline(
+        //     // let pipeline =
+        //     self.build_networked_pipeline(
+        //         &mut config,
+        //         network.clone(),
+        //         // client,
+        //         // Arc::clone(&consensus),
+        //         db.clone(),
+        //         &ctx.task_executor,
+        //     )
+        //     .await?
+
+        //     // let pipeline_events = pipeline.events();
+        //     // task.set_pipeline_events(pipeline_events);
+        //     // debug!(target: "reth::cli", "Spawning auto mine task");
+        //     // ctx.task_executor.spawn(Box::pin(task));
+
+        //     // pipeline
+        // } else {
+        //     // let client = network.fetch_client().await?;
+        //     self.build_networked_pipeline(
+        //         &mut config,
+        //         network.clone(),
+        //         // client,
+        //         // Arc::clone(&consensus),
+        //         db.clone(),
+        //         &ctx.task_executor,
+        //     )
+        //     .await?
+        // };
+        let mut pipeline = self
+            .build_networked_pipeline(
                 &mut config,
                 network.clone(),
                 // client,
@@ -281,26 +329,7 @@ impl Command {
                 db.clone(),
                 &ctx.task_executor,
             )
-            .await?
-
-            // let pipeline_events = pipeline.events();
-            // task.set_pipeline_events(pipeline_events);
-            // debug!(target: "reth::cli", "Spawning auto mine task");
-            // ctx.task_executor.spawn(Box::pin(task));
-
-            // pipeline
-        } else {
-            // let client = network.fetch_client().await?;
-            self.build_networked_pipeline(
-                &mut config,
-                network.clone(),
-                // client,
-                // Arc::clone(&consensus),
-                db.clone(),
-                &ctx.task_executor,
-            )
-            .await?
-        };
+            .await?;
 
         let events = stream_select(
             network.event_listener().map(Into::into),
@@ -310,18 +339,18 @@ impl Command {
             .spawn_critical("events task", events::handle_events(Some(network.clone()), events));
 
         // configure the payload builder
-        let payload_generator = BasicPayloadJobGenerator::new(
-            blockchain_db.clone(),
-            transaction_pool.clone(),
-            ctx.task_executor.clone(),
-            // TODO use extradata from args
-            BasicPayloadJobGeneratorConfig::default(),
-            Arc::clone(&self.chain),
-        );
-        let (payload_service, _payload_builder) = PayloadBuilderService::new(payload_generator);
+        // let payload_generator = BasicPayloadJobGenerator::new(
+        //     blockchain_db.clone(),
+        //     transaction_pool.clone(),
+        //     ctx.task_executor.clone(),
+        //     // TODO use extradata from args
+        //     BasicPayloadJobGeneratorConfig::default(),
+        //     Arc::clone(&self.chain),
+        // );
+        // let (payload_service, _payload_builder) = PayloadBuilderService::new(payload_generator);
 
-        debug!(target: "reth::cli", "Spawning payload builder service");
-        ctx.task_executor.spawn_critical("payload builder service", payload_service);
+        // debug!(target: "reth::cli", "Spawning payload builder service");
+        // ctx.task_executor.spawn_critical("payload builder service", payload_service);
 
         // let (beacon_consensus_engine, beacon_engine_handle) =
         // BeaconConsensusEngine::with_channel(     Arc::clone(&db),
@@ -335,7 +364,7 @@ impl Command {
         //     consensus_engine_rx,
         // );
         // info!(target: "reth::cli", "Consensus engine initialized");
-        info!(target: "reth::cli", "Not initializing the consensus engine");
+        // info!(target: "reth::cli", "Not initializing the consensus engine");
 
         // let engine_api = EngineApi::new(
         //     blockchain_db.clone(),
@@ -357,6 +386,7 @@ impl Command {
                 // engine_api,
             )
             .await?;
+        // info!(target: "reth::cli", "Starting RPC servers");
 
         // Run consensus engine to completion
         // let (tx, rx) = oneshot::channel();
@@ -368,7 +398,7 @@ impl Command {
 
         // rx.await??;
 
-        info!(target: "reth::cli", "Consensus engine has exited.");
+        // info!(target: "reth::cli", "Consensus engine has exited.");
 
         if self.debug.terminate {
             Ok(())

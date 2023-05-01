@@ -99,7 +99,7 @@ fn block1(number: BlockNumber) -> (SealedBlockWithSenders, PostState) {
     header.parent_hash = H256::zero();
     block.header = header.seal_slow();
     // eprintln!("block1 hash: {:#?}", block.hash());
-    eprintln!("block1: {:#?}", block);
+    // eprintln!("block1: {:#?}", block);
 
     let mut post_state = PostState::default();
     // Transaction changes
@@ -153,7 +153,7 @@ fn block2(number: BlockNumber, parent_hash: H256) -> (SealedBlockWithSenders, Po
     header.parent_hash = parent_hash;
     block.header = header.seal_slow();
     // eprintln!("block2 hash: {:#?}", block.hash());
-    eprintln!("block2: {:#?}", block);
+    // eprintln!("block2: {:#?}", block);
 
     let mut post_state = PostState::default();
     // block changes
