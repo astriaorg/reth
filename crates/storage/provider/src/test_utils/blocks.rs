@@ -59,7 +59,9 @@ impl BlockChainTestData {
     pub fn default_with_numbers(one: BlockNumber, two: BlockNumber) -> Self {
         let one = block1(one);
         let hash = one.0.hash;
-        Self { genesis: genesis(), blocks: vec![one, block2(two, hash)] }
+        let one_num: u64 = one.into();
+        let genesis_num: BlockNumber = one.clone() - 1.into();
+        Self { genesis: genesis(genesis_num), blocks: vec![one, block2(two, hash)] }
     }
 }
 
@@ -67,14 +69,14 @@ impl Default for BlockChainTestData {
     fn default() -> Self {
         let one = block1(1);
         let hash = one.0.hash;
-        Self { genesis: genesis(), blocks: vec![one, block2(2, hash)] }
+        Self { genesis: genesis(0), blocks: vec![one, block2(2, hash)] }
     }
 }
 
 /// Genesis block
-pub fn genesis() -> SealedBlock {
+pub fn genesis(num: BlockNumber) -> SealedBlock {
     let mut header =
-        Header { number: 0, difficulty: U256::from(1), ..Default::default() }.seal(H256::zero());
+        Header { number: num, difficulty: U256::from(1), ..Default::default() }.seal(H256::zero());
     header.gas_limit = 1000000;
     header.base_fee_per_gas = Some(1000);
     SealedBlock { header, body: vec![], ommers: vec![], withdrawals: Some(vec![]) }

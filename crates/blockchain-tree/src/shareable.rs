@@ -16,6 +16,7 @@ use std::{
     collections::{BTreeMap, HashSet},
     sync::Arc,
 };
+use tracing::*;
 
 /// Shareable blockchain tree that is behind tokio::RwLock
 #[derive(Clone)]
@@ -45,6 +46,7 @@ impl<DB: Database, EF: ExecutorFactory> BlockchainTreeEngine for ShareableBlockc
         let block = block
             .seal_with_senders()
             .ok_or(reth_interfaces::executor::Error::SenderRecoveryError)?;
+        debug!(target: "reth::cli", block = ?block, "inserting block into blockchain tree");
         tree.insert_in_range_block_with_senders(block)
     }
 

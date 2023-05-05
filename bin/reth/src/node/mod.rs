@@ -30,7 +30,7 @@ use reth_discv4::DEFAULT_DISCOVERY_PORT;
 //     headers::reverse_headers::ReverseHeadersDownloaderBuilder,
 // };
 use reth_interfaces::{
-    blockchain_tree::BlockchainTreeEngine,
+    blockchain_tree::{BlockStatus, BlockchainTreeEngine},
     // consensus::{Consensus, ForkchoiceState},
     p2p::headers::client::StatusUpdater,
     sync::SyncStateUpdater,
@@ -228,10 +228,23 @@ impl Command {
         let (block1, _exec1) = data.blocks[0].clone();
         let (block2, _exec2) = data.blocks[1].clone();
 
-        blockchain_tree.insert_block(block1.block)?;
+        let status = blockchain_tree.insert_block_with_senders(block1.clone())?;
+        debug!(target: "reth::cli", status = ?status, "insert status");
+        if status == BlockStatus::Valid {
+            info!(target: "reth::cli", "Block inserted Valid");
+        } else if status == BlockStatus::Accepted {
+            info!(target: "reth::cli", "Block not inserted Accepted");
+        }
+        // let b1_hash = block1.block.header.header.hash_slow();
+        debug!(target: "reth::cli", "pre make canonical");
+        debug!(target: "reth::cli", block_hash = ?block1.hash() ,"pre make canonical");
+
+        blockchain_tree.make_canonical(&block1.hash())?;
+        debug!(target: "reth::cli", "post make canonical");
         blockchain_tree.finalize_block(999937);
 
-        blockchain_tree.insert_block(block2.block)?;
+        blockchain_tree.insert_block(block2.block.clone())?;
+        blockchain_tree.make_canonical(&block2.hash())?;
         blockchain_tree.finalize_block(999938);
         debug!(target: "reth::cli", "Test block inserted and finalized");
 
