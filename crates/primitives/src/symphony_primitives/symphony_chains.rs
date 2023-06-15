@@ -44,11 +44,11 @@ impl TryFrom<&str> for SymphonyChains {
 impl Display for SymphonyChains {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let chain_name = match self {
-            SymphonyChains::Mainnet => "Mainnet",
-            SymphonyChains::Devnet => "Devnet",
-            SymphonyChains::Testnet => "Testnet"
+            SymphonyChains::Mainnet => "mainnet",
+            SymphonyChains::Devnet => "devnet",
+            SymphonyChains::Testnet => "testnet"
         };
 
-        write!(f, "Symphony-{chain_name}") 
+        write!(f, "symphony-{chain_name}") 
     }
 }

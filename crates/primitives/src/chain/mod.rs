@@ -1,6 +1,7 @@
 use crate::{
-    net::{goerli_nodes, mainnet_nodes, sepolia_nodes},
-    NodeRecord, U256, symphony_primitives::symphony_chains::SymphonyChains,
+    // FIXME: gotta import nodes once they are available
+    // net::{goerli_nodes, mainnet_nodes, sepolia_nodes},
+    NodeRecord, U256 as revmU256, symphony_primitives::symphony_chains::SymphonyChains,
 };
 use ethers_core::types::U64;
 use reth_codecs::add_arbitrary_tests;
@@ -120,8 +121,8 @@ impl From<u64> for Chain {
     }
 }
 
-impl From<U256> for Chain {
-    fn from(id: U256) -> Self {
+impl From<revmU256> for Chain {
+    fn from(id: revmU256) -> Self {
         id.to::<u64>().into()
     }
 }
@@ -141,9 +142,9 @@ impl From<Chain> for U64 {
     }
 }
 
-impl From<Chain> for U256 {
+impl From<Chain> for revmU256 {
     fn from(c: Chain) -> Self {
-        U256::from(u64::from(c))
+        revmU256::from(u64::from(c))
     }
 }
 
@@ -223,126 +224,4 @@ impl Default for Chain {
 //     }
 
 //     type Strategy = BoxedStrategy<Chain>;
-// }
-
-// #[cfg(test)]
-// mod tests {
-//     use super::*;
-
-//     #[test]
-//     fn test_id() {
-//         let chain = Chain::Id(1234);
-//         assert_eq!(chain.id(), 1234);
-//     }
-
-//     #[test]
-//     fn test_named_id() {
-//         let chain = Chain::Named(ethers_core::types::Chain::Goerli);
-//         assert_eq!(chain.id(), 5);
-//     }
-
-//     #[test]
-//     fn test_legacy_named_chain() {
-//         let chain = Chain::Named(ethers_core::types::Chain::Optimism);
-//         assert!(chain.is_legacy());
-//     }
-
-//     #[test]
-//     fn test_not_legacy_named_chain() {
-//         let chain = Chain::Named(ethers_core::types::Chain::Mainnet);
-//         assert!(!chain.is_legacy());
-//     }
-
-//     #[test]
-//     fn test_not_legacy_id_chain() {
-//         let chain = Chain::Id(1234);
-//         assert!(!chain.is_legacy());
-//     }
-
-//     #[test]
-//     fn test_display_named_chain() {
-//         let chain = Chain::Named(ethers_core::types::Chain::Mainnet);
-//         assert_eq!(format!("{chain}"), "mainnet");
-//     }
-
-//     #[test]
-//     fn test_display_id_chain() {
-//         let chain = Chain::Id(1234);
-//         assert_eq!(format!("{chain}"), "1234");
-//     }
-
-//     #[test]
-//     fn test_from_u256() {
-//         let n = U256::from(1234);
-//         let chain = Chain::from(n);
-//         let expected = Chain::Id(1234);
-
-//         assert_eq!(chain, expected);
-//     }
-
-//     #[test]
-//     fn test_into_u256() {
-//         let chain = Chain::Named(ethers_core::types::Chain::Goerli);
-//         let n: U256 = chain.into();
-//         let expected = U256::from(5);
-
-//         assert_eq!(n, expected);
-//     }
-
-//     #[test]
-//     #[allow(non_snake_case)]
-//     fn test_into_U64() {
-//         let chain = Chain::Named(ethers_core::types::Chain::Goerli);
-//         let n: U64 = chain.into();
-//         let expected = U64::from(5);
-
-//         assert_eq!(n, expected);
-//     }
-
-//     #[test]
-//     fn test_from_str_named_chain() {
-//         let result = Chain::from_str("mainnet");
-//         let expected = Chain::Named(ethers_core::types::Chain::Mainnet);
-
-//         assert!(result.is_ok());
-//         assert_eq!(result.unwrap(), expected);
-//     }
-
-//     #[test]
-//     fn test_from_str_named_chain_error() {
-//         let result = Chain::from_str("chain");
-
-//         assert!(result.is_err());
-//     }
-
-//     #[test]
-//     fn test_from_str_id_chain() {
-//         let result = Chain::from_str("1234");
-//         let expected = Chain::Id(1234);
-
-//         assert!(result.is_ok());
-//         assert_eq!(result.unwrap(), expected);
-//     }
-
-//     #[test]
-//     fn test_default() {
-//         let default = Chain::default();
-//         let expected = Chain::Named(ethers_core::types::Chain::Mainnet);
-
-//         assert_eq!(default, expected);
-//     }
-
-//     #[test]
-//     fn test_id_chain_encodable_length() {
-//         let chain = Chain::Id(1234);
-
-//         assert_eq!(chain.length(), 3);
-//     }
-
-//     #[test]
-//     fn test_dns_network() {
-//         let s = "enrtree://AKA3AM6LPBYEUDMVNU3BSVQJ5AD45Y7YPOHJLEF6W26QOE4VTUDPE@all.mainnet.ethdisco.net";
-//         let chain: Chain = ethers_core::types::Chain::Mainnet.into();
-//         assert_eq!(s, chain.public_dns_network_protocol().unwrap().as_str());
-//     }
 // }
