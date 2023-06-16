@@ -1,5 +1,5 @@
 
-use crate::{Chain};
+use crate::{Chain, Genesis};
 
 use ethers_core::types::H256;
 use serde::{Serialize, Deserialize};

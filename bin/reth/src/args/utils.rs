@@ -1,6 +1,6 @@
 //! Clap parser utilities
 
-use reth_primitives::{AllGenesisFormats, BlockHashOrNumber, ChainSpec, MAINNET_SPEC};
+use reth_primitives::{BlockHashOrNumber, ChainSpec, MAINNET_SPEC};
 use reth_revm::primitives::B256 as H256;
 use std::{
     net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs},

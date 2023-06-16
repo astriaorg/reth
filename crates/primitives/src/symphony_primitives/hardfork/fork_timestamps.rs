@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use crate::Hardfork;
+use crate::{ForkCondition, Hardfork};
 
 /// Various timestamps of forks
 #[derive(Debug, Clone, Default, Eq, PartialEq)]

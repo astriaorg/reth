@@ -4,7 +4,7 @@ use crate::{
     NodeRecord, U256 as revmU256, symphony_primitives::symphony_chains::SymphonyChains,
 };
 use ethers_core::types::U64;
-use reth_codecs::add_arbitrary_tests;
+// use reth_codecs::add_arbitrary_tests;
 use reth_rlp::{Decodable, Encodable};
 use serde::{Deserialize, Serialize};
 use std::{fmt, str::FromStr};
@@ -12,10 +12,12 @@ use std::{fmt, str::FromStr};
 // The chain spec module.
 mod spec;
 mod static_specs;
+
+// Re-exports
 pub use static_specs::MAINNET_SPEC;
 
 pub use spec::{
-    AllGenesisFormats, ChainSpec, ForkCondition, // ChainSpecBuilder,  
+    chainspec::ChainSpec, ForkCondition, // ChainSpecBuilder,  
 };
 
 // The chain info module.

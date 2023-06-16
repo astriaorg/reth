@@ -15,13 +15,11 @@ pub mod basefee;
 mod bits;
 mod block;
 pub mod bloom;
-mod chain;
 mod compression;
 pub mod constants;
 pub mod contract;
 mod forkid;
 mod genesis;
-mod hardfork;
 mod header;
 mod hex_bytes;
 mod integer_list;
@@ -42,7 +40,7 @@ pub mod proofs;
 // Symphony specific modules
 pub mod symphony_primitives;
 
-pub use symphony_primitives::{symphony_constants, symphony_chains};
+pub use symphony_primitives::{symphony_constants, symphony_chains, Hardfork, SymphonyChains, ChainSpec};
 
 pub use account::{Account, Bytecode};
 pub use bits::H512;
@@ -51,16 +49,12 @@ pub use block::{
     ForkBlock, SealedBlock, SealedBlockWithSenders,
 };
 pub use bloom::Bloom;
-pub use chain::{
-    AllGenesisFormats, Chain, ChainInfo, ChainSpec, ForkCondition, MAINNET_SPEC // ChainSpecBuilder
-};
 pub use compression::*;
 pub use constants::{
     EMPTY_OMMER_ROOT, GOERLI_GENESIS, KECCAK_EMPTY, MAINNET_GENESIS, SEPOLIA_GENESIS,
 };
 pub use forkid::{ForkFilter, ForkHash, ForkId, ForkTransition, ValidationError};
 pub use genesis::{Genesis, GenesisAccount};
-pub use hardfork::Hardfork;
 pub use header::{Head, Header, HeadersDirection, SealedHeader};
 pub use hex_bytes::Bytes;
 pub use integer_list::IntegerList;

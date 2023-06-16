@@ -7,7 +7,6 @@ use crate::{
     utils::serde_helpers::deserialize_stringified_u64,
     Account, Address, Bytes, H256, KECCAK_EMPTY, U256,
 };
-use ethers_core::utils::GenesisAccount as EthersGenesisAccount;
 use reth_rlp::{encode_fixed_size, length_of_length, Encodable, Header as RlpHeader};
 use serde::{Deserialize, Serialize};
 use triehash::sec_trie_root;
@@ -177,19 +176,6 @@ impl Encodable for GenesisAccount {
         let len = self.payload_len();
         // RLP header length + payload length
         len + length_of_length(len)
-    }
-}
-
-impl From<EthersGenesisAccount> for GenesisAccount {
-    fn from(genesis_account: EthersGenesisAccount) -> Self {
-        Self {
-            balance: genesis_account.balance.into(),
-            nonce: genesis_account.nonce,
-            code: genesis_account.code.as_ref().map(|code| code.0.clone().into()),
-            storage: genesis_account.storage.as_ref().map(|storage| {
-                storage.clone().into_iter().map(|(k, v)| (k.0.into(), v.0.into())).collect()
-            }),
-        }
     }
 }
 
