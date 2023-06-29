@@ -1,0 +1,17 @@
+[package]
+name = "symphony-primitives"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+homepage.workspace = true
+repository.workspace = true
+description = "Symphony specific primitive data types."
+
+# [dependencies]
+
+# [dev-dependencies]
+
+# [features]
+
+# [[bench]]

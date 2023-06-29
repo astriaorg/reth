@@ -6839,6 +6839,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "symphony-primitives"
+version = "0.1.0-alpha.1"
+
+[[package]]
 name = "syn"
 version = "0.15.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
