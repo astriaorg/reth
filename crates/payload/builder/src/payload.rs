@@ -1,7 +1,7 @@
 //! Contains types required for building a payload.
 
 use reth_primitives::{Address, ChainSpec, Header, SealedBlock, Withdrawal, H256, U256};
-use reth_revm_primitives::config::revm_spec_by_timestamp_after_merge;
+// use reth_revm_primitives::config::revm_spec_by_timestamp_after_merge;
 use reth_rlp::Encodable;
 use reth_rpc_types::engine::{
     ExecutionPayload, ExecutionPayloadEnvelope, PayloadAttributes, PayloadId,
@@ -93,62 +93,62 @@ pub struct PayloadBuilderAttributes {
 // === impl PayloadBuilderAttributes ===
 
 impl PayloadBuilderAttributes {
-    /// Creates a new payload builder for the given parent block and the attributes.
-    ///
-    /// Derives the unique [PayloadId] for the given parent and attributes
-    pub fn new(parent: H256, attributes: PayloadAttributes) -> Self {
-        let id = payload_id(&parent, &attributes);
-        Self {
-            id,
-            parent,
-            timestamp: attributes.timestamp.as_u64(),
-            suggested_fee_recipient: attributes.suggested_fee_recipient,
-            prev_randao: attributes.prev_randao,
-            withdrawals: attributes.withdrawals.unwrap_or_default(),
-        }
-    }
+//     /// Creates a new payload builder for the given parent block and the attributes.
+//     ///
+//     /// Derives the unique [PayloadId] for the given parent and attributes
+//     pub fn new(parent: H256, attributes: PayloadAttributes) -> Self {
+//         let id = payload_id(&parent, &attributes);
+//         Self {
+//             id,
+//             parent,
+//             timestamp: attributes.timestamp.as_u64(),
+//             suggested_fee_recipient: attributes.suggested_fee_recipient,
+//             prev_randao: attributes.prev_randao,
+//             withdrawals: attributes.withdrawals.unwrap_or_default(),
+//         }
+//     }
 
-    /// Returns the configured [CfgEnv] and [BlockEnv] for the targeted payload (that has the
-    /// `parent` as its parent).
-    ///
-    /// The `chain_spec` is used to determine the correct chain id and hardfork for the payload
-    /// based on its timestamp.
-    ///
-    /// Block related settings are derived from the `parent` block and the configured attributes.
-    ///
-    /// NOTE: This is only intended for beacon consensus (after merge).
-    pub fn cfg_and_block_env(&self, chain_spec: &ChainSpec, parent: &Header) -> (CfgEnv, BlockEnv) {
-        // configure evm env based on parent block
-        let cfg = CfgEnv {
-            chain_id: U256::from(chain_spec.chain().id()),
-            // ensure we're not missing any timestamp based hardforks
-            spec_id: revm_spec_by_timestamp_after_merge(chain_spec, self.timestamp),
-            ..Default::default()
-        };
+//     /// Returns the configured [CfgEnv] and [BlockEnv] for the targeted payload (that has the
+//     /// `parent` as its parent).
+//     ///
+//     /// The `chain_spec` is used to determine the correct chain id and hardfork for the payload
+//     /// based on its timestamp.
+//     ///
+//     /// Block related settings are derived from the `parent` block and the configured attributes.
+//     ///
+//     /// NOTE: This is only intended for beacon consensus (after merge).
+//     pub fn cfg_and_block_env(&self, chain_spec: &ChainSpec, parent: &Header) -> (CfgEnv, BlockEnv) {
+//         // configure evm env based on parent block
+//         let cfg = CfgEnv {
+//             chain_id: U256::from(chain_spec.chain().id()),
+//             // ensure we're not missing any timestamp based hardforks
+//             spec_id: revm_spec_by_timestamp_after_merge(chain_spec, self.timestamp),
+//             ..Default::default()
+//         };
 
-        let block_env = BlockEnv {
-            number: U256::from(parent.number + 1),
-            coinbase: self.suggested_fee_recipient,
-            timestamp: U256::from(self.timestamp),
-            difficulty: U256::ZERO,
-            prevrandao: Some(self.prev_randao),
-            gas_limit: U256::from(parent.gas_limit),
-            // calculate basefee based on parent block's gas usage
-            basefee: U256::from(parent.next_block_base_fee().unwrap_or_default()),
-        };
+//         let block_env = BlockEnv {
+//             number: U256::from(parent.number + 1),
+//             coinbase: self.suggested_fee_recipient,
+//             timestamp: U256::from(self.timestamp),
+//             difficulty: U256::ZERO,
+//             prevrandao: Some(self.prev_randao),
+//             gas_limit: U256::from(parent.gas_limit),
+//             // calculate basefee based on parent block's gas usage
+//             basefee: U256::from(parent.next_block_base_fee().unwrap_or_default()),
+//         };
 
-        (cfg, block_env)
-    }
+//         (cfg, block_env)
+//     }
 
-    /// Returns the identifier of the payload.
+//     /// Returns the identifier of the payload.
     pub fn payload_id(&self) -> PayloadId {
         self.id
     }
 }
 
-/// Generates the payload id for the configured payload
-///
-/// Returns an 8-byte identifier by hashing the payload components with sha256 hash.
+// /// Generates the payload id for the configured payload
+// ///
+// /// Returns an 8-byte identifier by hashing the payload components with sha256 hash.
 pub(crate) fn payload_id(parent: &H256, attributes: &PayloadAttributes) -> PayloadId {
     use sha2::Digest;
     let mut hasher = sha2::Sha256::new();
