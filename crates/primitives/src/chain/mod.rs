@@ -12,7 +12,7 @@ use std::{fmt, str::FromStr};
 mod spec;
 pub use spec::{
     AllGenesisFormats, ChainSpec, ChainSpecBuilder, DisplayHardforks, ForkCondition,
-    ForkTimestamps, GOERLI, MAINNET, SEPOLIA,
+    ForkTimestamps, TESTNET_SPEC, MAINNET_SPEC, DEVNET_SPEC,
 };
 
 // The chain info module.
@@ -53,10 +53,11 @@ impl Chain {
         }
     }
 
-    // Returns the address of the public DNS node list for the given chain.
-    //
-    // See also <https://github.com/ethereum/discv4-dns-lists>
-    // pub fn public_dns_network_protocol(self) -> Option<String> {
+    /// Returns the address of the public DNS node list for the given chain.
+    ///
+    /// See also <https://github.com/ethereum/discv4-dns-lists>
+    pub fn public_dns_network_protocol(self) -> Option<String> {
+        todo!()
     //     use ethers_core::types::Chain::*;
     //     const DNS_PREFIX: &str = "enrtree://AKA3AM6LPBYEUDMVNU3BSVQJ5AD45Y7YPOHJLEF6W26QOE4VTUDPE@";
 
@@ -66,10 +67,11 @@ impl Chain {
     //         return Some(format!("{DNS_PREFIX}all.{}.ethdisco.net", named.as_ref().to_lowercase()))
     //     }
     //     None
-    // }
+    }
 
-    // Returns bootnodes for the given chain. 
-    // pub fn bootnodes(self) -> Option<Vec<NodeRecord>> {
+    /// Returns bootnodes for the given chain. 
+    pub fn bootnodes(self) -> Option<Vec<NodeRecord>> {
+        todo!()
     //     use ethers_core::types::Chain::*;
     //     match self.try_into().ok()? {
     //         Mainnet => Some(mainnet_nodes()),
@@ -77,7 +79,7 @@ impl Chain {
     //         Sepolia => Some(sepolia_nodes()),
     //         _ => None,
     //     }
-    // }
+    }
 }
 
 impl fmt::Display for Chain {

@@ -16,7 +16,7 @@ use std::{
 };
 
 /// The Ethereum mainnet spec
-pub static MAINNET: Lazy<Arc<ChainSpec>> = Lazy::new(|| {
+pub static MAINNET_SPEC: Lazy<Arc<ChainSpec>> = Lazy::new(|| {
     ChainSpec {
         chain: Chain::mainnet(),
         genesis: serde_json::from_str(include_str!("../../res/genesis/mainnet.json"))
@@ -58,10 +58,10 @@ pub static MAINNET: Lazy<Arc<ChainSpec>> = Lazy::new(|| {
     .into()
 });
 
-/// The Goerli spec
-pub static GOERLI: Lazy<Arc<ChainSpec>> = Lazy::new(|| {
+/// The devnet spec
+pub static DEVNET_SPEC: Lazy<Arc<ChainSpec>> = Lazy::new(|| {
     ChainSpec {
-        chain: Chain::goerli(),
+        chain: Chain::devnet(),
         genesis: serde_json::from_str(include_str!("../../res/genesis/goerli.json"))
             .expect("Can't deserialize Goerli genesis json"),
         genesis_hash: Some(H256(hex!(
@@ -92,10 +92,10 @@ pub static GOERLI: Lazy<Arc<ChainSpec>> = Lazy::new(|| {
     .into()
 });
 
-/// The Sepolia spec
-pub static SEPOLIA: Lazy<Arc<ChainSpec>> = Lazy::new(|| {
+/// The Testnet spec
+pub static TESTNET_SPEC: Lazy<Arc<ChainSpec>> = Lazy::new(|| {
     ChainSpec {
-        chain: Chain::sepolia(),
+        chain: Chain::testnet(),
         genesis: serde_json::from_str(include_str!("../../res/genesis/sepolia.json"))
             .expect("Can't deserialize Sepolia genesis json"),
         genesis_hash: Some(H256(hex!(
@@ -444,9 +444,9 @@ impl ChainSpecBuilder {
     /// Construct a new builder from the mainnet chain spec.
     pub fn mainnet() -> Self {
         Self {
-            chain: Some(MAINNET.chain),
-            genesis: Some(MAINNET.genesis.clone()),
-            hardforks: MAINNET.hardforks.clone(),
+            chain: Some(MAINNET_SPEC.chain),
+            genesis: Some(MAINNET_SPEC.genesis.clone()),
+            hardforks: MAINNET_SPEC.hardforks.clone(),
         }
     }
 
