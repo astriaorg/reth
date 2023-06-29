@@ -108,6 +108,7 @@ thiserror = "1.0.37"
 serde_json = "1.0.94"
 serde = { version = "1.0", default-features = false }
 rand = "0.8.5"
+parse-display = { version = "0.8.1"}
 
 
 ## tokio
