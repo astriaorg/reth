@@ -4,7 +4,6 @@ use reth_interfaces::{
     provider::ProviderError,
 };
 use reth_primitives::SealedHeader;
-use reth_provider::TransactionError;
 use thiserror::Error;
 use tokio::sync::mpsc::error::SendError;
 
@@ -59,13 +58,13 @@ pub enum StageError {
     /// The stage encountered a database integrity error.
     #[error("A database integrity error occurred: {0}")]
     DatabaseIntegrity(#[from] ProviderError),
-    /// The stage encountered an error related to the current database transaction.
-    #[error("A database transaction error occurred: {0}")]
-    Transaction(#[from] TransactionError),
     /// Invalid download response. Applicable for stages which
     /// rely on external downloaders
     #[error("Invalid download response: {0}")]
     Download(#[from] DownloadError),
+    /// Internal error
+    #[error(transparent)]
+    Internal(#[from] reth_interfaces::Error),
     /// The stage encountered a recoverable error.
     ///
     /// These types of errors are caught by the [Pipeline][crate::Pipeline] and trigger a restart
@@ -89,8 +88,7 @@ impl StageError {
                 StageError::DatabaseIntegrity(_) |
                 StageError::StageCheckpoint(_) |
                 StageError::ChannelClosed |
-                StageError::Fatal(_) |
-                StageError::Transaction(_)
+                StageError::Fatal(_)
         )
     }
 }
@@ -104,6 +102,9 @@ pub enum PipelineError {
     /// The pipeline encountered a database error.
     #[error("A database error occurred.")]
     Database(#[from] DbError),
+    /// The pipeline encountered an irrecoverable error in one of the stages.
+    #[error("An interface error occurred.")]
+    Interface(#[from] reth_interfaces::Error),
     /// The pipeline encountered an error while trying to send an event.
     #[error("The pipeline encountered an error while trying to send an event.")]
     Channel(#[from] SendError<PipelineEvent>),

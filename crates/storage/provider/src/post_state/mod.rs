@@ -640,12 +640,14 @@ impl PostState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::{AccountReader, ProviderFactory};
     use reth_db::{
         database::Database,
-        mdbx::{test_utils, Env, EnvKind, WriteMap},
+        mdbx::{test_utils, EnvKind},
         transaction::DbTx,
+        DatabaseEnv,
     };
-    use reth_primitives::proofs::EMPTY_ROOT;
+    use reth_primitives::{proofs::EMPTY_ROOT, MAINNET};
     use reth_trie::test_utils::state_root;
     use std::sync::Arc;
 
@@ -1065,8 +1067,9 @@ mod tests {
 
     #[test]
     fn write_to_db_account_info() {
-        let db: Arc<Env<WriteMap>> = test_utils::create_test_db(EnvKind::RW);
-        let tx = db.tx_mut().expect("Could not get database tx");
+        let db: Arc<DatabaseEnv> = test_utils::create_test_db(EnvKind::RW);
+        let factory = ProviderFactory::new(db, MAINNET.clone());
+        let provider = factory.provider_rw().unwrap();
 
         let mut post_state = PostState::new();
 
@@ -1081,22 +1084,23 @@ mod tests {
         post_state.create_account(1, address_a, account_a);
         // 0x11.. is changed (balance + 1, nonce + 1)
         post_state.change_account(1, address_b, account_b, account_b_changed);
-        post_state.write_to_db(&tx).expect("Could not write post state to DB");
+        post_state.write_to_db(provider.tx_ref()).expect("Could not write post state to DB");
 
         // Check plain state
         assert_eq!(
-            tx.get::<tables::PlainAccountState>(address_a).expect("Could not read account state"),
+            provider.basic_account(address_a).expect("Could not read account state"),
             Some(account_a),
             "Account A state is wrong"
         );
         assert_eq!(
-            tx.get::<tables::PlainAccountState>(address_b).expect("Could not read account state"),
+            provider.basic_account(address_b).expect("Could not read account state"),
             Some(account_b_changed),
             "Account B state is wrong"
         );
 
         // Check change set
-        let mut changeset_cursor = tx
+        let mut changeset_cursor = provider
+            .tx_ref()
             .cursor_dup_read::<tables::AccountChangeSet>()
             .expect("Could not open changeset cursor");
         assert_eq!(
@@ -1113,11 +1117,11 @@ mod tests {
         let mut post_state = PostState::new();
         // 0x11.. is destroyed
         post_state.destroy_account(2, address_b, account_b_changed);
-        post_state.write_to_db(&tx).expect("Could not write second post state to DB");
+        post_state.write_to_db(provider.tx_ref()).expect("Could not write second post state to DB");
 
         // Check new plain state for account B
         assert_eq!(
-            tx.get::<tables::PlainAccountState>(address_b).expect("Could not read account state"),
+            provider.basic_account(address_b).expect("Could not read account state"),
             None,
             "Account B should be deleted"
         );
@@ -1132,7 +1136,7 @@ mod tests {
 
     #[test]
     fn write_to_db_storage() {
-        let db: Arc<Env<WriteMap>> = test_utils::create_test_db(EnvKind::RW);
+        let db: Arc<DatabaseEnv> = test_utils::create_test_db(EnvKind::RW);
         let tx = db.tx_mut().expect("Could not get database tx");
 
         let mut post_state = PostState::new();
@@ -1268,7 +1272,7 @@ mod tests {
 
     #[test]
     fn write_to_db_multiple_selfdestructs() {
-        let db: Arc<Env<WriteMap>> = test_utils::create_test_db(EnvKind::RW);
+        let db: Arc<DatabaseEnv> = test_utils::create_test_db(EnvKind::RW);
         let tx = db.tx_mut().expect("Could not get database tx");
 
         let address1 = Address::random();
@@ -1817,7 +1821,7 @@ mod tests {
 
     #[test]
     fn empty_post_state_state_root() {
-        let db: Arc<Env<WriteMap>> = test_utils::create_test_db(EnvKind::RW);
+        let db: Arc<DatabaseEnv> = test_utils::create_test_db(EnvKind::RW);
         let tx = db.tx().unwrap();
 
         let post_state = PostState::new();
@@ -1836,7 +1840,7 @@ mod tests {
             })
             .collect();
 
-        let db: Arc<Env<WriteMap>> = test_utils::create_test_db(EnvKind::RW);
+        let db: Arc<DatabaseEnv> = test_utils::create_test_db(EnvKind::RW);
 
         // insert initial state to the database
         db.update(|tx| {

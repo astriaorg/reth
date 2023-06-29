@@ -23,7 +23,7 @@ The most important requirement is by far the disk, whereas CPU and RAM requireme
 
 ### Disk
 
-There are multiple types of disks to sync Reth, with varying size requirements, depending on the [syncing mode](../run/sync-modes.md):
+There are multiple types of disks to sync Reth, with varying size requirements, depending on the syncing mode:
 
 * Archive Node: At least 2TB is required to store 
 * Full Node: TBD
@@ -36,7 +36,7 @@ At the time of writing, syncing an Ethereum mainnet node to block 17.4M on NVMe 
 
 Most of the time during syncing is spent executing transactions, which is a single-threaded operation due to potential state dependencies of a transaction on previous ones.
 
-As a result, the number of cores matters less, but in general higher clock speeds are better. More cores are better for parallelizable [stages](../developers/architecture.md) (like sender recovery or bodies downloading), but these stages are not the primary bottleneck for syncing.
+As a result, the number of cores matters less, but in general higher clock speeds are better. More cores are better for parallelizable [stages](https://github.com/paradigmxyz/reth/blob/main/docs/crates/stages.md) (like sender recovery or bodies downloading), but these stages are not the primary bottleneck for syncing.
 
 ### Memory
 
@@ -52,4 +52,4 @@ A stable and dependable internet connection is crucial for both syncing a node f
 
 Note that due to Reth's staged sync, you only need an internet connection for the Headers and Bodies stages. This means that the first 1-3 hours (depending on your internet connection) will be online, downloading all necessary data, and the rest will be done offline and does not require an internet connection. 
 
-Once you're synced to the tip you will need a reliable connection, especially if you're operating a validator. A 24MBps connection is recommended, but you can probably get away with less. Make sure your ISP does not cap your bandwidth.
+Once you're synced to the tip you will need a reliable connection, especially if you're operating a validator. A 24Mbps connection is recommended, but you can probably get away with less. Make sure your ISP does not cap your bandwidth.
