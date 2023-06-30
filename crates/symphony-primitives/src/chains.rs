@@ -2,7 +2,7 @@
 use std::{fmt::{Display, Debug}};
 
 use serde::{Serialize, Deserialize};
-use crate::constants::{DEVNET_ID, MAINNET_ID, TESTNET_ID};
+use crate::constants::{DEVNET_ID, MAINNET_ID, TESTNET_ID, MAINNET_NAME, DEVNET_NAME, TESTNET_NAME};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[repr(u64)]
@@ -30,14 +30,12 @@ impl TryFrom<u64> for SymphonyChains {
     }
 }
 
-impl TryFrom<SymphonyChains> for u64 {
-    type Error = SymphonyChainError;
-    fn try_from(value: SymphonyChains) -> Result<Self, Self::Error> {
+impl From<SymphonyChains> for u64 {
+    fn from(value: SymphonyChains) -> Self {
         match value {
-            SymphonyChains::Mainnet => Ok(MAINNET_ID),
-            SymphonyChains::Devnet => Ok(DEVNET_ID),
-            SymphonyChains::Testnet => Ok(TESTNET_ID),
-            _ => Err(SymphonyChainError::UnrecognizedChainId)
+            SymphonyChains::Mainnet => MAINNET_ID,
+            SymphonyChains::Devnet => DEVNET_ID,
+            SymphonyChains::Testnet => TESTNET_ID,
         }
     }
 }
@@ -46,10 +44,10 @@ impl TryFrom<SymphonyChains> for u64 {
 impl TryFrom<&str> for SymphonyChains {
     type Error = SymphonyChainError;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
-        match value.to_lowercase().as_str() {
-            "mainnet" => Ok(Self::Mainnet),
-            "devnet" => Ok(Self::Devnet),
-            "testnet" => Ok(Self::Testnet),
+        match value.to_uppercase().as_str() {
+            MAINNET_NAME => Ok(Self::Mainnet),
+            DEVNET_NAME => Ok(Self::Devnet),
+            TESTNET_NAME => Ok(Self::Testnet),
             _ => Err(SymphonyChainError::UnrecognizedStr)
         }
     }
@@ -58,10 +56,12 @@ impl TryFrom<&str> for SymphonyChains {
 impl Display for SymphonyChains {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let chain_name = match self {
-            SymphonyChains::Mainnet => "mainnet",
-            SymphonyChains::Devnet => "devnet",
-            SymphonyChains::Testnet => "testnet"
+            SymphonyChains::Mainnet => MAINNET_NAME,
+            SymphonyChains::Devnet => DEVNET_NAME,
+            SymphonyChains::Testnet => TESTNET_NAME
         };
+
+        let chain_name = chain_name.to_lowercase();
 
         write!(f, "symphony-{chain_name}") 
     }
