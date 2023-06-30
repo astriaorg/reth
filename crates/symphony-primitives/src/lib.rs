@@ -1,4 +1,4 @@
-pub mod constants;
 pub mod chains;
+pub mod constants;
 
-pub use chains::{SymphonyChains, SymphonyChainError};
+pub use chains::{SymphonyChainError, SymphonyChains};

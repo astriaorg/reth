@@ -1,21 +1,22 @@
+use std::fmt::{Debug, Display};
 
-use std::{fmt::{Display, Debug}};
-
-use serde::{Serialize, Deserialize};
-use crate::constants::{DEVNET_ID, MAINNET_ID, TESTNET_ID, MAINNET_NAME, DEVNET_NAME, TESTNET_NAME};
+use crate::constants::{
+    DEVNET_ID, DEVNET_NAME, MAINNET_ID, MAINNET_NAME, TESTNET_ID, TESTNET_NAME,
+};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Hash)]
 #[repr(u64)]
 pub enum SymphonyChains {
     Mainnet = MAINNET_ID,
     Devnet = DEVNET_ID,
-    Testnet = TESTNET_ID
+    Testnet = TESTNET_ID,
 }
 
 #[derive(Debug)]
 pub enum SymphonyChainError {
     UnrecognizedChainId,
-    UnrecognizedStr
+    UnrecognizedStr,
 }
 
 impl TryFrom<u64> for SymphonyChains {
@@ -25,7 +26,7 @@ impl TryFrom<u64> for SymphonyChains {
             MAINNET_ID => Ok(Self::Mainnet),
             DEVNET_ID => Ok(Self::Devnet),
             TESTNET_ID => Ok(Self::Testnet),
-            _ => Err(SymphonyChainError::UnrecognizedChainId)
+            _ => Err(SymphonyChainError::UnrecognizedChainId),
         }
     }
 }
@@ -40,7 +41,6 @@ impl From<SymphonyChains> for u64 {
     }
 }
 
-
 impl TryFrom<&str> for SymphonyChains {
     type Error = SymphonyChainError;
     fn try_from(value: &str) -> Result<Self, Self::Error> {
@@ -48,7 +48,7 @@ impl TryFrom<&str> for SymphonyChains {
             MAINNET_NAME => Ok(Self::Mainnet),
             DEVNET_NAME => Ok(Self::Devnet),
             TESTNET_NAME => Ok(Self::Testnet),
-            _ => Err(SymphonyChainError::UnrecognizedStr)
+            _ => Err(SymphonyChainError::UnrecognizedStr),
         }
     }
 }
@@ -58,11 +58,11 @@ impl Display for SymphonyChains {
         let chain_name = match self {
             SymphonyChains::Mainnet => MAINNET_NAME,
             SymphonyChains::Devnet => DEVNET_NAME,
-            SymphonyChains::Testnet => TESTNET_NAME
+            SymphonyChains::Testnet => TESTNET_NAME,
         };
 
         let chain_name = chain_name.to_lowercase();
 
-        write!(f, "symphony-{chain_name}") 
+        write!(f, "symphony-{chain_name}")
     }
 }
