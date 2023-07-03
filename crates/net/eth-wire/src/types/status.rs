@@ -2,9 +2,10 @@ use crate::{EthVersion, StatusBuilder};
 
 use reth_codecs::derive_arbitrary;
 use reth_primitives::{
-    hex, Chain, ChainSpec, ForkId, Genesis, Hardfork, Head, H256, MAINNET, U256,
+    hex, Chain, ChainSpec, ForkId, Genesis, Hardfork, Head, H256, MAINNET_SPEC, U256,
 };
 use reth_rlp::{RlpDecodable, RlpEncodable};
+use symphony_primitives::SymphonyChains;
 use std::fmt::{Debug, Display};
 
 #[cfg(feature = "serde")]
@@ -132,15 +133,15 @@ impl Debug for Status {
 // <https://etherscan.io/block/0>
 impl Default for Status {
     fn default() -> Self {
-        let mainnet_genesis = MAINNET.genesis_hash();
+        let mainnet_genesis = MAINNET_SPEC.genesis_hash();
         Status {
             version: EthVersion::Eth68 as u8,
-            chain: Chain::Named(ethers_core::types::Chain::Mainnet),
+            chain: Chain::Named(SymphonyChains::Mainnet),
             total_difficulty: U256::from(17_179_869_184u64),
             blockhash: mainnet_genesis,
             genesis: mainnet_genesis,
             forkid: Hardfork::Frontier
-                .fork_id(&MAINNET)
+                .fork_id(&MAINNET_SPEC)
                 .expect("The Frontier hardfork should always exist"),
         }
     }

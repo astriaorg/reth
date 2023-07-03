@@ -9,6 +9,9 @@ repository.workspace = true
 description = "Commonly used types in reth."
 
 [dependencies]
+#symphony
+symphony-primitives = { workspace = true }
+
 # reth
 reth-rlp = { workspace = true, features = ["std", "derive", "ethereum-types"] }
 reth-rlp-derive = { path = "../rlp/rlp-derive" }
@@ -56,6 +59,7 @@ url = "2.3"
 impl-serde = "0.4.0"
 once_cell = "1.17.0"
 zstd = { version = "0.12", features = ["experimental"] }
+parse-display = { workspace = true }
 
 # proof related
 triehash = "0.8"

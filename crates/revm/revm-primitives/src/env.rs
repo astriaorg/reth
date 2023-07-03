@@ -77,7 +77,7 @@ pub fn fill_block_env_with_coinbase(
 
 /// Return the coinbase address for the given header and chain spec.
 pub fn block_coinbase(chain_spec: &ChainSpec, header: &Header, after_merge: bool) -> Address {
-    if chain_spec.chain == Chain::goerli() && !after_merge {
+    if chain_spec.chain == Chain::devnet() && !after_merge {
         recover_header_signer(header).expect("failed to recover signer")
     } else {
         header.beneficiary

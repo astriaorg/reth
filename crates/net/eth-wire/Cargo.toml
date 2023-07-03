@@ -13,6 +13,9 @@ bytes.workspace = true
 thiserror = { workspace = true }
 serde = { workspace = true, optional = true }
 
+#symphony
+symphony-primitives = { workspace = true }
+
 # reth
 reth-codecs = { path = "../../storage/codecs" }
 reth-primitives = { workspace = true }
